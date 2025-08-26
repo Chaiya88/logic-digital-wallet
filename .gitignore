@@ -9,13 +9,29 @@ dist/
 # Logs
 *.log
 npm-debug.log*
+#################################################
+# Unified .gitignore (merged after conflict)
+#################################################
+
+# Dependencies
+node_modules/
+
+# Build / Bundled output
+dist/
+.build/
+.tmp/
+
+# Logs
+*.log
+npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment files
+# Environment files (keep example only)
 .env
 .env.*
 !.env.example
+.env.local
 
 # OS / Editor junk
 .DS_Store
@@ -28,7 +44,11 @@ coverage/
 
 # Cloudflare Workers artifacts
 .workers/
+.wrangler/
 wrangler.toml.local
 
-# Misc
+# Database / dumps
+*.sql
+
+# Misc / swap
 *.swp

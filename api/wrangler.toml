@@ -1,0 +1,35 @@
+﻿name = "logic-digital-wallet-api"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+SERVICE_NAME = "Digital Wallet API"
+
+[[d1_databases]]
+binding = "DATABASE"
+database_name = "wallet-production-db"
+database_id = "85bcd386f06541844632ecb984afa9fb-prod-db"
+
+[env.development]
+name = "logic-digital-wallet-api-dev"
+
+[env.development.vars]
+ENVIRONMENT = "development"
+
+[[env.development.d1_databases]]
+binding = "DATABASE"
+database_name = "wallet-development-db"
+database_id = "85bcd386f06541844632ecb984afa9fb-dev-db"
+
+[env.staging]
+name = "logic-digital-wallet-api-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+
+[[env.staging.d1_databases]]
+binding = "DATABASE"
+database_name = "wallet-staging-db"
+database_id = "85bcd386f06541844632ecb984afa9fb-staging-db"
