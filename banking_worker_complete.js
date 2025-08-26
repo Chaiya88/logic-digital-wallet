@@ -278,11 +278,25 @@ async function confirmTHBDeposit(request, env) {
       return errorResponse('Pending deposit not found or already processed.', 404);
     }
     
-    const doglcAmount = amount / exchangeRate;
+    // Apply commission (deposit) if configured
+    const configStr = await (env.DOGLC_CONFIG ? env.DOGLC_CONFIG.get('SYSTEM_CONFIG') : null);
+    let commissionPct = 0;
+    if (configStr) {
+      try { const cfg = JSON.parse(configStr); commissionPct = cfg?.commission?.deposit || 0; } catch {}
+    }
+    const grossDoglc = amount / exchangeRate;
+    const feeDoglc = grossDoglc * commissionPct;
+    const doglcAmount = grossDoglc - feeDoglc;
 
     await env.DB.prepare('BEGIN TRANSACTION').run();
     try {
       await env.DB.prepare(`UPDATE wallets SET balance = balance + ? WHERE user_id = ?`).bind(doglcAmount, userId).run();
+      if (feeDoglc > 0.0001) {
+        // Record fee transaction (internal)
+        const feeId = `fee_${generateUUID()}`;
+        await env.DB.prepare(`INSERT INTO transactions (id, from_user, amount, status, type, note, currency, created_at) VALUES (?, ?, ?, 'completed', 'fee', ?, 'DOGLC', ? )`)
+          .bind(feeId, userId, feeDoglc, 'Deposit commission fee', new Date().toISOString()).run();
+      }
       
       await env.DB.prepare(`UPDATE transactions SET status = 'completed', confirmed_at = ?, note = ? WHERE id = ?`)
         .bind(new Date().toISOString(), `Completed THB Deposit. Received ${doglcAmount.toFixed(4)} DOGLC.`, depositId).run();
@@ -291,7 +305,7 @@ async function confirmTHBDeposit(request, env) {
       
       await env.DOGLC_WALLET_CACHE.delete(`wallet_${userId}`);
 
-      return successResponse({ message: 'Deposit confirmed and wallet credited.' });
+  return successResponse({ message: 'Deposit confirmed and wallet credited.', credited: doglcAmount, fee: feeDoglc });
     } catch (dbError) {
       await env.DB.prepare('ROLLBACK').run();
       throw dbError;
@@ -318,8 +332,13 @@ async function initiateUSDTWithdrawal(request, env, ctx) {
       return errorResponse('Insufficient DOGLC balance.', 400);
     }
     
-    const withdrawalId = `wdr_${generateUUID()}`;
-    const usdtAmount = doglcAmount * exchangeRate;
+  const withdrawalId = `wdr_${generateUUID()}`;
+  const configStr = await (env.DOGLC_CONFIG ? env.DOGLC_CONFIG.get('SYSTEM_CONFIG') : null);
+  let withdrawCommissionPct = 0;
+  if (configStr) { try { const cfg = JSON.parse(configStr); withdrawCommissionPct = cfg?.commission?.withdraw || 0; } catch {} }
+  const grossUsdt = doglcAmount * exchangeRate;
+  const feeUsdt = grossUsdt * withdrawCommissionPct;
+  const usdtAmount = grossUsdt - feeUsdt;
 
     await env.DB.prepare('BEGIN TRANSACTION').run();
     try {
@@ -327,7 +346,12 @@ async function initiateUSDTWithdrawal(request, env, ctx) {
         .bind(doglcAmount, doglcAmount, userId).run();
 
       await env.DB.prepare(`INSERT INTO transactions (id, from_user, amount, status, type, note, currency, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(withdrawalId, userId, doglcAmount, 'pending_withdrawal', 'crypto_withdrawal', `Withdraw ${usdtAmount.toFixed(4)} USDT to ${usdtAddress}`, 'USDT', new Date().toISOString()).run();
+        .bind(withdrawalId, userId, doglcAmount, 'pending_withdrawal', 'crypto_withdrawal', `Withdraw ${usdtAmount.toFixed(4)} USDT (fee ${feeUsdt.toFixed(4)}) to ${usdtAddress}`, 'USDT', new Date().toISOString()).run();
+      if (feeUsdt > 0.0000001) {
+        const feeId = `fee_${generateUUID()}`;
+        await env.DB.prepare(`INSERT INTO transactions (id, from_user, amount, status, type, note, currency, created_at) VALUES (?, ?, ?, 'completed', 'fee', ?, 'USDT', ?)`)
+          .bind(feeId, userId, feeUsdt, 'Withdrawal commission fee', new Date().toISOString()).run();
+      }
 
       await env.DB.prepare('COMMIT').run();
 
@@ -335,10 +359,7 @@ async function initiateUSDTWithdrawal(request, env, ctx) {
 
       ctx.waitUntil(processCryptoPayout(withdrawalId, usdtAddress, usdtAmount, env));
 
-      return successResponse({
-        withdrawalId: withdrawalId,
-        message: 'Withdrawal initiated. It may take a few minutes to process.'
-      });
+  return successResponse({ withdrawalId, message: 'Withdrawal initiated. It may take a few minutes to process.', net_usdt: usdtAmount, fee_usdt: feeUsdt });
 
     } catch (dbError) {
       await env.DB.prepare('ROLLBACK').run();

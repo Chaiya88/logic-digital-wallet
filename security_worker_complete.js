@@ -37,6 +37,31 @@ const I18N = {
   }
 };
 
+
+// ---------------- Webhook Signature Verification -----------------
+async function verifyWebhookSignature(request, env, signature, timestamp) {
+  try {
+    if (!env.GMAIL_WEBHOOK_SECRET) return false;
+    // Replay protection: reject if timestamp older than 5 minutes
+    const now = Date.now();
+    const tsNum = parseInt(timestamp, 10);
+    if (!tsNum || Math.abs(now - tsNum) > 5 * 60 * 1000) return false;
+    const body = await request.clone().text();
+    const data = `${timestamp}.${body}`;
+    const enc = new TextEncoder().encode(data);
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.GMAIL_WEBHOOK_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const sigBuf = await crypto.subtle.sign('HMAC', key, enc);
+    const digest = Array.from(new Uint8Array(sigBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    // Constant time compare
+    if (digest.length !== signature.length) return false;
+    let diff = 0;
+    for (let i=0;i<digest.length;i++) diff |= digest.charCodeAt(i) ^ signature.charCodeAt(i);
+    return diff === 0;
+  } catch (e) {
+    console.error('verifyWebhookSignature error', e);
+    return false;
+  }
+}
 function t(key, lang) {
   const l = SUPPORTED_LANGS.includes(lang) ? lang : DEFAULT_LANG;
   return (I18N[key] && I18N[key][l]) || (I18N[key] ? I18N[key][DEFAULT_LANG] : key);
@@ -48,16 +73,23 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // Security check for internal API
+    // Authentication logic:
+    // 1) Default: require INTERNAL_API_KEY header
+    // 2) Exception: /webhook/bank-email may alternatively use HMAC signature
+    let authenticated = false;
     const internalApiKey = request.headers.get('X-Internal-API');
-    if (internalApiKey !== env.INTERNAL_API_KEY) {
-      return new Response(JSON.stringify({
-        error: 'Unauthorized',
-        message: 'Invalid internal API key'
-      }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    if (internalApiKey && internalApiKey === env.INTERNAL_API_KEY) {
+      authenticated = true;
+    } else if (path === '/webhook/bank-email') {
+      // Allow HMAC signature based auth for external webhook source
+      const sigHeader = request.headers.get('X-Email-Signature');
+      const ts = request.headers.get('X-Email-Timestamp');
+      if (sigHeader && ts && await verifyWebhookSignature(request, env, sigHeader, ts)) {
+        authenticated = true;
+      }
+    }
+    if (!authenticated) {
+      return new Response(JSON.stringify({ error: 'Unauthorized', message: 'Auth failed' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
 
     try {
@@ -227,7 +259,8 @@ async function handleSlipVerification(request, env) {
       verificationScore: ocrResult.result.confidence_score
     };
     
-    await env.PENDING_VERIFICATIONS.put(
+  const pendingKV = env.SLIP_VERIFICATION || env.PENDING_VERIFICATIONS;
+  await pendingKV.put(
       `slip_${depositId}`, 
       JSON.stringify(pendingData), 
       { expirationTtl: 86400 }
@@ -282,7 +315,7 @@ async function handleBankEmailNotification(request, env) {
     }
 
     // Find matching pending slip verification
-    const { depositId, userId } = await findMatchingSlip(emailDetails.data, env);
+  const { depositId, userId } = await findMatchingSlip(emailDetails.data, env);
 
     if (depositId && userId) {
       try {
@@ -303,7 +336,8 @@ async function handleBankEmailNotification(request, env) {
 
         if (bankingResponse.ok) {
           // Clean up pending verification
-          await env.PENDING_VERIFICATIONS.delete(`slip_${depositId}`);
+          const pendingKV = env.SLIP_VERIFICATION || env.PENDING_VERIFICATIONS;
+          await pendingKV.delete(`slip_${depositId}`);
           
           // Log successful verification
           await logSecurityEvent('deposit_verified_via_email', userId, {
@@ -331,7 +365,8 @@ async function handleBankEmailNotification(request, env) {
       }
     } else {
       // Store unmatched email for manual review
-      await env.PENDING_VERIFICATIONS.put(
+  const pendingKV2 = env.SLIP_VERIFICATION || env.PENDING_VERIFICATIONS;
+  await pendingKV2.put(
         `unmatched_email_${Date.now()}`, 
         JSON.stringify({
           emailData: emailDetails.data,
@@ -393,12 +428,13 @@ function parseBankEmail(emailContent) {
 
 async function findMatchingSlip(emailData, env) {
   try {
-    const list = await env.PENDING_VERIFICATIONS.list({ prefix: 'slip_' });
+  const pendingKV = env.SLIP_VERIFICATION || env.PENDING_VERIFICATIONS;
+  const list = await pendingKV.list({ prefix: 'slip_' });
     const now = new Date();
     const matchingCandidates = [];
 
     for (const key of list.keys) {
-      const pendingDataStr = await env.PENDING_VERIFICATIONS.get(key.name);
+  const pendingDataStr = await pendingKV.get(key.name);
       if (pendingDataStr) {
         const pendingData = JSON.parse(pendingDataStr);
         const slipAmount = parseFloat(pendingData.slipData.amount);
