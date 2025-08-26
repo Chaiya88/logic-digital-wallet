@@ -374,36 +374,30 @@ async function initiateUSDTWithdrawal(request, env, ctx) {
 async function selectReceivingAccount(amount, env) {
   try {
     const bankAccountsStr = await env.DOGLC_CONFIG.get('BANK_ACCOUNTS');
-    if (!bankAccountsStr) {
-      throw new Error("Bank account configuration not found.");
-    }
-    
+    if (!bankAccountsStr) throw new Error('Bank account configuration not found.');
     let bankAccounts = JSON.parse(bankAccountsStr);
-
-    let availableAccounts = bankAccounts.filter(acc => 
-      acc.status === 'active' && 
-      (acc.currentDailyTotal + amount) <= acc.dailyLimit
-    );
-
-    if (availableAccounts.length === 0) {
+    const candidates = bankAccounts.filter(acc => acc.status === 'active' && (acc.currentDailyTotal + amount) <= acc.dailyLimit);
+    if (candidates.length === 0) {
       return { success: false, error: 'All receiving accounts are temporarily unavailable. Please try again later.' };
     }
-
-    availableAccounts.sort((a, b) => a.currentDailyTotal - b.currentDailyTotal);
-    const selectedAccount = availableAccounts[0];
-
-    const updatedAccounts = bankAccounts.map(acc => {
-      if (acc.accountId === selectedAccount.accountId) {
-        return { ...acc, currentDailyTotal: acc.currentDailyTotal + amount };
-      }
-      return acc;
+    const maxPriority = Math.max(...candidates.map(a => a.priority || 1), 1);
+    const scored = candidates.map(acc => {
+      const remaining = Math.max(0, acc.dailyLimit - acc.currentDailyTotal);
+      const capacityRatio = remaining / (acc.dailyLimit || 1);
+      const utilization = acc.currentDailyTotal / (acc.dailyLimit || 1);
+      const priorityNorm = (acc.priority || 1) / maxPriority;
+      const totalOps = (acc.successCount || 0) + (acc.failureCount || 0);
+      const reliability = totalOps === 0 ? 1 : (acc.successCount || 0) / totalOps;
+      const score = (capacityRatio * 0.45) + ((1 - utilization) * 0.15) + (priorityNorm * 0.25) + (reliability * 0.15);
+      return { acc, score };
     });
-
+    scored.sort((a, b) => b.score - a.score);
+    const selected = scored[0].acc;
+    const updatedAccounts = bankAccounts.map(a => a.accountId === selected.accountId ? { ...a, currentDailyTotal: a.currentDailyTotal + amount } : a);
     await env.DOGLC_CONFIG.put('BANK_ACCOUNTS', JSON.stringify(updatedAccounts));
-
-    return { success: true, account: selectedAccount };
+    return { success: true, account: selected };
   } catch (error) {
-    console.error("Account Selection Error:", error);
+    console.error('Account Selection Error:', error);
     return { success: false, error: 'An internal error occurred while selecting a payment account.' };
   }
 }
@@ -1235,21 +1229,46 @@ async function updateRates(request, env) {
 
 async function adminAddBankAccount(request, env) {
   try {
-    const { bankName, accountName, accountNumber, dailyLimit = 100000 } = await request.json();
+    const { bankName, accountName, accountNumber, dailyLimit = 100000, priority = 1, tags = [] } = await request.json();
     if (!bankName || !accountName || !accountNumber) return errorResponse('Missing bank account fields', 400);
     const cfg = await loadConfig(env);
     if (!cfg.BANK_ACCOUNTS) cfg.BANK_ACCOUNTS = [];
     const newAcc = {
       accountId: 'acc_' + crypto.randomUUID(),
-      bankName, accountName, accountNumber,
-      dailyLimit: Number(dailyLimit), currentDailyTotal: 0,
-      status: 'active', createdAt: new Date().toISOString()
+      bankName,
+      accountName,
+      accountNumber,
+      dailyLimit: Number(dailyLimit),
+      currentDailyTotal: 0,
+      status: 'active',
+      priority: Number(priority) || 1,
+      tags: Array.isArray(tags) ? tags : [],
+      successCount: 0,
+      failureCount: 0,
+      createdAt: new Date().toISOString()
     };
     cfg.BANK_ACCOUNTS.push(newAcc);
     await persistConfig(env, cfg);
     return successResponse({ message: 'Bank account added', account: newAcc });
   } catch (e) {
     return errorResponse('Failed to add bank account: ' + e.message, 500);
+  }
+}
+
+async function adminUpdateBankAccountMeta(request, env) {
+  try {
+    const { accountId, priority, tags, status } = await request.json();
+    if (!accountId) return errorResponse('accountId required', 400);
+    const cfg = await loadConfig(env);
+    const acc = (cfg.BANK_ACCOUNTS || []).find(a => a.accountId === accountId);
+    if (!acc) return errorResponse('Account not found', 404);
+    if (priority !== undefined) acc.priority = Number(priority);
+    if (tags !== undefined) acc.tags = Array.isArray(tags) ? tags : [];
+    if (status !== undefined) acc.status = status;
+    await persistConfig(env, cfg);
+    return successResponse({ message: 'Metadata updated', account: acc });
+  } catch (e) {
+    return errorResponse('Failed to update metadata: ' + e.message, 500);
   }
 }
 
