@@ -9,10 +9,14 @@
     "deploy:staging": "wrangler deploy --env staging",
     "deploy:dev": "wrangler deploy --env development"
   },
-  "keywords": ["digital-wallet", "cloudflare", "workers"],
+  "keywords": [
+    "digital-wallet",
+    "cloudflare",
+    "workers"
+  ],
   "author": "Chatya88",
   "license": "MIT",
   "devDependencies": {
-    "wrangler": "^3.78.0"
+    "wrangler": "^4.33.0"
   }
 }

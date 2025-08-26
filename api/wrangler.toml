@@ -10,7 +10,7 @@ SERVICE_NAME = "Digital Wallet API"
 [[d1_databases]]
 binding = "DATABASE"
 database_name = "wallet-production-db"
-database_id = "85bcd386f06541844632ecb984afa9fb-prod-db"
+database_id = "534c2f1f-a529-46a5-8ede-e294d3df9d31"
 
 [env.development]
 name = "logic-digital-wallet-api-dev"
@@ -21,7 +21,7 @@ ENVIRONMENT = "development"
 [[env.development.d1_databases]]
 binding = "DATABASE"
 database_name = "wallet-development-db"
-database_id = "85bcd386f06541844632ecb984afa9fb-dev-db"
+database_id = "a274e90f-9263-418d-8f06-60c284a1838d"
 
 [env.staging]
 name = "logic-digital-wallet-api-staging"
@@ -32,4 +32,4 @@ ENVIRONMENT = "staging"
 [[env.staging.d1_databases]]
 binding = "DATABASE"
 database_name = "wallet-staging-db"
-database_id = "85bcd386f06541844632ecb984afa9fb-staging-db"
+database_id = "137549a1-a1ee-4746-a030-0395211d09e1"
