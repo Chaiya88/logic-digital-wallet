@@ -95,6 +95,59 @@ npx wrangler d1 migrations apply wallet-production-db
 - Add secrets management guidelines
 - Harden security auditing & anomaly detection rules
 
+## Infrastructure Configuration (Wrangler Multi-Worker)
+The root `wrangler.toml` now defines:
+- Service bindings for cross-worker calls (`MAIN_BOT`, `API_WORKER`, `BANKING`, `SECURITY`, `FRONTEND`, `BACKUP`).
+- KV namespaces for sessions, transactions, rate limits, bank usage, audit logs, commission tracking, slip verification.
+- D1 databases for wallet, security audit, transaction logs, user accounts, trading bot state.
+- R2 buckets for logs, assets, receipts, and user documents.
+
+Secrets (tokens, API keys) are NOT stored in the repo. Add them via Wrangler:
+```pwsh
+wrangler secret put INTERNAL_API_KEY
+wrangler secret put ADMIN_API_KEY
+wrangler secret put TELEGRAM_BOT_TOKEN
+wrangler secret put TRONSCAN_API_KEY
+wrangler secret put TELEGRAM_WEBHOOK_SECRET
+```
+
+Reference environment template: `.env.example` (never commit the filled `.env`).
+
+### Adding a Bank Account (Admin API)
+Use the Banking Worker admin endpoint (internal call):
+```
+POST /admin/bank-accounts/add
+Headers: X-Internal-API: <INTERNAL_API_KEY>
+Body:
+{
+	"accountNumber": "6645769717",
+	"bankName": "Krungthai",
+	"holder": "ไชยา บุญทิ้ง",
+	"branch": "Lotus Wonghin",
+	"dailyLimit": 2000000,
+	"tags": ["primary"],
+	"status": "active"
+}
+```
+
+### Updating Rates
+```
+POST /admin/rates/update
+Headers: X-Internal-API: <INTERNAL_API_KEY>
+Body: {
+	"exchangeRates": { "THB_USDT": 33.5 },
+	"commission": { "deposit": 0.005, "withdraw": 0.01 }
+}
+```
+
+### Dashboard
+```
+GET /admin/dashboard
+Headers: X-Internal-API: <INTERNAL_API_KEY>
+```
+
+Returns utilization, bank account status, pending transactions, alerts.
+
 ## License
 Private (all rights reserved)
 

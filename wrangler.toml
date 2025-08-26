@@ -1,0 +1,235 @@
+# Root Wrangler configuration for multi-worker platform
+# NOTE: Sensitive values are placeholders. Do NOT commit real secrets.
+
+name = "trading-bot-platform"
+main = "main_orchestrator.js" # (optional orchestrator, create if needed)
+compatibility_date = "2024-08-25"
+compatibility_flags = ["nodejs_compat"]
+
+# --- Service Bindings (these must point to already-deployed Cloudflare Worker services) ---
+[[services]]
+binding = "MAIN_BOT"
+service = "main-bot-worker"
+
+[[services]]
+binding = "API_WORKER"
+service = "api-worker"
+
+[[services]]
+binding = "FRONTEND"
+service = "frontend-worker"
+
+[[services]]
+binding = "BANKING"
+service = "banking-worker"
+
+[[services]]
+binding = "SECURITY"
+service = "security-worker"
+
+[[services]]
+binding = "BACKUP"
+service = "backup-worker"
+
+# --- KV Namespaces ---
+[[kv_namespaces]]
+binding = "TELEGRAM_WEBHOOK_DATA"
+id = "09e96fd563fa40e78807d6d3a6c472ea"
+
+[[kv_namespaces]]
+binding = "DOGLC_BANK_ANALYTICS"
+id = "1820cf6efc134c0c81848d592ff90281"
+
+[[kv_namespaces]]
+binding = "SECURITY_TOKENS"
+id = "1f9aecbbfba6447aba4d7636bc4a1c9b"
+
+[[kv_namespaces]]
+binding = "SYSTEM_CONFIGURATION"
+id = "30a8090b48de444585c66b77ecc6f81f"
+
+[[kv_namespaces]]
+binding = "DOGLC_WALLET_CACHE"
+id = "5e66eb37d4284f638a5e113874fa75e3"
+
+[[kv_namespaces]]
+binding = "USER_SESSIONS"
+id = "77d3ab1c7cb64cb3b7a8176d4a7f34c5"
+
+[[kv_namespaces]]
+binding = "PRICE_DATA_CACHE"
+id = "7feefd999d6c4745a9b5e107e01564dd"
+
+[[kv_namespaces]]
+binding = "TRADING_BOT_CACHE"
+id = "9d24fcbebd8d41a3ae0229a6a1142377"
+
+[[kv_namespaces]]
+binding = "DOGLC_TRANSACTIONS"
+id = "a8aa61f9c3be4a5ca5fd5cfa9c71f424"
+
+[[kv_namespaces]]
+binding = "DOGLC_BANKS"
+id = "af109643c04040fdbf7de1399e06dd60"
+
+[[kv_namespaces]]
+binding = "DOGLC_BANK_USAGE"
+id = "b11d1603bed444bfbae7021d8c81a7b7"
+
+[[kv_namespaces]]
+binding = "NOTIFICATION_HISTORY"
+id = "b24f169113d24cc78c112e2a73cdbb38"
+
+[[kv_namespaces]]
+binding = "DOGLC_BACKUP_STATUS"
+id = "b3ca425f529c4e9094775f0cafa80269"
+
+[[kv_namespaces]]
+binding = "BLOCKED_IPS_KV"
+id = "be21a7d891f2460bb4574d87d42434c5"
+
+[[kv_namespaces]]
+binding = "COMMISSION_TRACKING"
+id = "c193b4cfcdad43c19076a33d942aacf5"
+
+[[kv_namespaces]]
+binding = "API_RATE_LIMITS"
+id = "c869f2dd16ea45f194117cc666c5c525"
+
+[[kv_namespaces]]
+binding = "ENHANCED_AUDIT_LOGS"
+id = "cf4bb72cd46644a79223c9aa9a7f9f3a"
+
+[[kv_namespaces]]
+binding = "SLIP_DETECTION"
+id = "d0753a43e5604574aea5c0e1e603e66d"
+
+[[kv_namespaces]]
+binding = "SLIP_VERIFICATION"
+id = "d70e2e1ea1a940f5bd3e8ad4ccf13bf6"
+
+[[kv_namespaces]]
+binding = "TRANSACTIONS_KV"
+id = "d85f89efc7be4b8ca3aa0bd4b7ecdc8b"
+
+# --- D1 Databases ---
+[[d1_databases]]
+binding = "MAIN_WALLET_DB"
+database_name = "doglc-wallet-main"
+database_id = "ca32997b-ac29-4c9c-b587-decc8cb3e9a6"
+
+[[d1_databases]]
+binding = "SECURITY_AUDIT_DB"
+database_name = "security-audit-db"
+database_id = "0a7f6e7b-ef2a-4051-b7ea-4212c499d5a4"
+
+[[d1_databases]]
+binding = "TRANSACTION_LOGS_DB"
+database_name = "transaction-logs-db"
+database_id = "ca643e6e-a4a6-4ef5-9600-fc85047819bc"
+
+[[d1_databases]]
+binding = "USER_ACCOUNTS_DB"
+database_name = "user-accounts-db"
+database_id = "1e599730-a05c-413a-a149-552a7468ae2c"
+
+[[d1_databases]]
+binding = "TRADING_BOT_MAIN_DB"
+database_name = "trading-bot-main"
+database_id = "08481df5-5644-49fb-9aea-57b52a549cb4"
+
+# --- R2 Buckets ---
+[[r2_buckets]]
+binding = "SYSTEM_LOGS"
+bucket_name = "system-logs"
+
+[[r2_buckets]]
+binding = "TRADING_ASSETS"
+bucket_name = "trading-bot-assets"
+
+[[r2_buckets]]
+binding = "TRANSACTION_RECEIPTS"
+bucket_name = "transaction-receipts"
+
+[[r2_buckets]]
+binding = "USER_DOCUMENTS"
+bucket_name = "user-documents"
+
+# --- Plain Environment Vars (non-secret). Secrets should be added with `wrangler secret put` ---
+[vars]
+ACCOUNT_ID = "85bcd386f06541844632ecb984afa9fb"
+PROJECT_NAME = "trading-bot-platform"
+ENVIRONMENT = "production"
+DOMAIN = "teenoi96.org"
+SUPPORTED_LANGUAGES = "th,zh,en,km,ko,id"
+DEFAULT_LANGUAGE = "th"
+API_RATE_LIMIT_PER_MINUTE = "100"
+OCR_PROCESSING_TIMEOUT = "30000"
+BLOCKCHAIN_CONFIRMATION_BLOCKS = "3"
+SESSION_TIMEOUT_HOURS = "24"
+MAX_LOG_ENTRIES_PER_REQUEST = "1000"
+DEFAULT_THB_USDT_RATE = "33.5"
+EXCHANGE_RATE_SOURCE = "realtime_api"
+MIN_TRANSACTION_THB = "3000"
+MAX_TRANSACTION_THB = "2000000"
+MIN_TRANSACTION_USDT = "100"
+MAX_TRANSACTION_USDT = "50000"
+REFERRAL_F1_RATE = "0.07"
+REFERRAL_F2_RATE = "0.15"
+REFERRAL_F3_RATE = "0.25"
+REFERRAL_BONUS_AMOUNT = "50"
+REFERRAL_BONUS_REQUIREMENT = "50"
+BANK_NAME = "Krungthai"
+BANK_BRANCH = "Lotus Wonghin"
+BANK_ACCOUNT_NUMBER = "664-5-76971-7" # public formatted
+BANK_ACCOUNT_NAME = "NEXT Savings"
+BANK_ACCOUNT_HOLDER = "<protected>" # DO NOT store real holder name publicly if sensitive
+BANK_DAILY_LIMIT = "2000000"
+NOTIFICATION_EMAIL = "ops@teenoi96.org"
+
+# Placeholders (set via secrets): TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_WEBHOOK_SECRET,
+# ADMIN_API_KEY, MASTER_ADMIN_ID, MASTER_ADMIN_USERNAME, TRON_WALLET_ADDRESS, TRONSCAN_API_KEY
+
+# --- Environment Overrides ---
+[env.development.vars]
+ENVIRONMENT = "development"
+DEBUG_MODE = "true"
+WEBHOOK_URL = "http://localhost:3000/webhook"
+API_BASE_URL = "http://localhost:3000"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+DEBUG_MODE = "false"
+WEBHOOK_URL = "https://teenoi96.org/webhook"
+API_BASE_URL = "https://teenoi96.org"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+DEBUG_MODE = "false"
+WEBHOOK_URL = "https://teenoi96.org/webhook"
+API_BASE_URL = "https://teenoi96.org"
+
+# --- Build (optional if orchestrator worker used) ---
+[build]
+command = "npm run build"
+watch_dir = "src"
+
+# --- Routes (if this single orchestrator serves multiple paths) ---
+[[routes]]
+pattern = "teenoi96.org/api/*"
+zone_name = "teenoi96.org"
+
+[[routes]]
+pattern = "teenoi96.org/app/*"
+zone_name = "teenoi96.org"
+
+[[routes]]
+pattern = "teenoi96.org/bot/*"
+zone_name = "teenoi96.org"
+
+[[routes]]
+pattern = "teenoi96.org/webhook/*"
+zone_name = "teenoi96.org"
+
+# Compatibility (legacy) - using nodejs_compat flag above
+node_compat = true
