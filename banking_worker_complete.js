@@ -31,6 +31,30 @@ export default {
     }
 
     try {
+      // --- Basic per-endpoint rate limiting (assumes KV binding RATE_LIMITS) ---
+      // Map endpoint prefix to limit (requests per window) & window seconds
+      const ratePolicies = [
+        { match: /^\/fiat\/deposit/, limit: 20, window: 60 },
+        { match: /^\/crypto\/withdraw/, limit: 15, window: 60 },
+        { match: /^\/wallet\//, limit: 60, window: 60 },
+        { match: /^\/transactions\//, limit: 40, window: 60 },
+        { match: /^\/admin\//, limit: 30, window: 300 },
+      ];
+      const policy = ratePolicies.find(p => p.match.test(path));
+      if (policy && env.RATE_LIMITS) {
+        const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const rlKey = `rl:${ip}:${policy.match}`; // coarse key
+        const limited = await applyRateLimit(env, rlKey, policy.limit, policy.window);
+        if (limited.blocked) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Too Many Requests',
+            retry_after: limited.retryAfter,
+            limit: policy.limit,
+            window_seconds: policy.window
+          }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+        }
+      }
       // Banking API routing
       switch (path) {
         // --- NEW ROUTES: Fiat, Crypto, and Cron ---
@@ -139,6 +163,26 @@ export default {
         case '/validate/address':
           if (method === 'POST') return await validateAddress(request, env);
           break;
+
+        // --- Admin & Config Management ---
+        case '/admin/config/get':
+          if (method === 'GET') return await getFullConfig(env);
+          break;
+        case '/admin/rates/update':
+          if (method === 'POST') return await updateRates(request, env);
+          break;
+        case '/admin/bank-accounts/add':
+          if (method === 'POST') return await adminAddBankAccount(request, env);
+          break;
+        case '/admin/bank-accounts/update-status':
+          if (method === 'POST') return await adminUpdateBankAccountStatus(request, env);
+          break;
+        case '/admin/bank-accounts/remove':
+          if (method === 'POST') return await adminRemoveBankAccount(request, env);
+          break;
+        case '/admin/dashboard':
+          if (method === 'GET') return await getAdminDashboard(env);
+          break;
           
         default:
           return new Response(JSON.stringify({
@@ -182,6 +226,9 @@ async function initiateTHBDeposit(request, env) {
     if (!userId || !amount || amount <= 0) {
       return errorResponse('User ID and a valid amount are required.', 400);
     }
+
+  // Enforce THB only (explicit)
+  // Future: may allow specifying currency but reject non-THB
 
     const selectedAccount = await selectReceivingAccount(parseFloat(amount), env);
     if (!selectedAccount.success) {
@@ -263,6 +310,8 @@ async function initiateUSDTWithdrawal(request, env, ctx) {
     if (!userId || !doglcAmount || !usdtAddress || doglcAmount <= 0) {
       return errorResponse('User ID, DOGLC amount, and USDT address are required.', 400);
     }
+
+  // Enforce USDT withdrawal only (currency fixed)
 
     const wallet = await getWalletData(userId, env);
     if (!wallet || wallet.available < doglcAmount) {
@@ -1110,6 +1159,167 @@ function successResponse(data) {
 
 function errorResponse(message, status = 400) {
     return new Response(JSON.stringify({ success: false, error: message }), { status: status, headers: { 'Content-Type': 'application/json' } });
+}
+
+// ------------------ Rate Limiting ------------------
+async function applyRateLimit(env, key, limit, windowSecs) {
+  try {
+    const now = Date.now();
+    const bucketStr = await env.RATE_LIMITS.get(key);
+    let bucket;
+    if (bucketStr) {
+      bucket = JSON.parse(bucketStr);
+      if (bucket.expiresAt <= now) {
+        bucket = { count: 0, expiresAt: now + windowSecs * 1000 };
+      }
+    } else {
+      bucket = { count: 0, expiresAt: now + windowSecs * 1000 };
+    }
+    bucket.count += 1;
+    await env.RATE_LIMITS.put(key, JSON.stringify(bucket), { expiration: Math.floor(bucket.expiresAt / 1000) });
+    if (bucket.count > limit) {
+      return { blocked: true, retryAfter: Math.ceil((bucket.expiresAt - now)/1000) };
+    }
+    return { blocked: false, remaining: Math.max(0, limit - bucket.count) };
+  } catch (e) {
+    // Fail open if KV unavailable
+    return { blocked: false };
+  }
+}
+
+// --------------- Admin Config Management ------------
+async function getFullConfig(env) {
+  const base = await loadConfig(env);
+  return successResponse({ config: base });
+}
+
+async function updateRates(request, env) {
+  try {
+    const body = await request.json();
+    const { depositFeePercent, withdrawalFeePercent, commissionPercent, thbToDoglcRate, doglcToUsdtRate } = body;
+    const cfg = await loadConfig(env);
+    if (!cfg.RATES) cfg.RATES = {};
+    if (depositFeePercent !== undefined) cfg.RATES.depositFeePercent = Number(depositFeePercent);
+    if (withdrawalFeePercent !== undefined) cfg.RATES.withdrawalFeePercent = Number(withdrawalFeePercent);
+    if (commissionPercent !== undefined) cfg.RATES.commissionPercent = Number(commissionPercent);
+    if (!cfg.EXCHANGE) cfg.EXCHANGE = {};
+    if (thbToDoglcRate !== undefined) cfg.EXCHANGE.thbToDoglc = Number(thbToDoglcRate);
+    if (doglcToUsdtRate !== undefined) cfg.EXCHANGE.doglcToUsdt = Number(doglcToUsdtRate);
+    await persistConfig(env, cfg);
+    return successResponse({ message: 'Rates updated', rates: cfg.RATES, exchange: cfg.EXCHANGE });
+  } catch (e) {
+    return errorResponse('Failed to update rates: ' + e.message, 500);
+  }
+}
+
+async function adminAddBankAccount(request, env) {
+  try {
+    const { bankName, accountName, accountNumber, dailyLimit = 100000 } = await request.json();
+    if (!bankName || !accountName || !accountNumber) return errorResponse('Missing bank account fields', 400);
+    const cfg = await loadConfig(env);
+    if (!cfg.BANK_ACCOUNTS) cfg.BANK_ACCOUNTS = [];
+    const newAcc = {
+      accountId: 'acc_' + crypto.randomUUID(),
+      bankName, accountName, accountNumber,
+      dailyLimit: Number(dailyLimit), currentDailyTotal: 0,
+      status: 'active', createdAt: new Date().toISOString()
+    };
+    cfg.BANK_ACCOUNTS.push(newAcc);
+    await persistConfig(env, cfg);
+    return successResponse({ message: 'Bank account added', account: newAcc });
+  } catch (e) {
+    return errorResponse('Failed to add bank account: ' + e.message, 500);
+  }
+}
+
+async function adminUpdateBankAccountStatus(request, env) {
+  try {
+    const { accountId, status } = await request.json();
+    if (!accountId || !status) return errorResponse('accountId and status required', 400);
+    const cfg = await loadConfig(env);
+    const idx = cfg.BANK_ACCOUNTS.findIndex(a => a.accountId === accountId);
+    if (idx === -1) return errorResponse('Account not found', 404);
+    cfg.BANK_ACCOUNTS[idx].status = status;
+    await persistConfig(env, cfg);
+    return successResponse({ message: 'Status updated', account: cfg.BANK_ACCOUNTS[idx] });
+  } catch (e) {
+    return errorResponse('Failed to update status: ' + e.message, 500);
+  }
+}
+
+async function adminRemoveBankAccount(request, env) {
+  try {
+    const { accountId } = await request.json();
+    if (!accountId) return errorResponse('accountId required', 400);
+    const cfg = await loadConfig(env);
+    const before = cfg.BANK_ACCOUNTS.length;
+    cfg.BANK_ACCOUNTS = cfg.BANK_ACCOUNTS.filter(a => a.accountId !== accountId);
+    if (cfg.BANK_ACCOUNTS.length === before) return errorResponse('Account not found', 404);
+    await persistConfig(env, cfg);
+    return successResponse({ message: 'Bank account removed', remaining: cfg.BANK_ACCOUNTS.length });
+  } catch (e) {
+    return errorResponse('Failed to remove bank account: ' + e.message, 500);
+  }
+}
+
+async function getAdminDashboard(env) {
+  try {
+    const cfg = await loadConfig(env);
+    const accounts = cfg.BANK_ACCOUNTS || [];
+    const utilization = accounts.map(a => ({
+      accountId: a.accountId,
+      bankName: a.bankName,
+      status: a.status,
+      used: a.currentDailyTotal,
+      limit: a.dailyLimit,
+      utilization: +(a.currentDailyTotal / (a.dailyLimit || 1) * 100).toFixed(2)
+    }));
+    const alerts = [];
+    utilization.forEach(u => {
+      if (u.utilization >= 90) alerts.push({ type: 'bank_account_capacity', accountId: u.accountId, message: `Account ${u.accountId} at ${u.utilization}% of daily limit` });
+      if (u.status !== 'active') alerts.push({ type: 'bank_account_status', accountId: u.accountId, message: `Account ${u.accountId} status = ${u.status}` });
+    });
+    // Pending transactions
+    const pendingDeposits = await env.DB.prepare(`SELECT COUNT(*) as c FROM transactions WHERE type='fiat_deposit' AND status IN ('pending_payment','pending_verification')`).first();
+    const pendingWithdrawals = await env.DB.prepare(`SELECT COUNT(*) as c FROM transactions WHERE type='crypto_withdrawal' AND status='pending_withdrawal'`).first();
+    const dashboard = {
+      exchange: cfg.EXCHANGE || {},
+      rates: cfg.RATES || {},
+      accounts: utilization,
+      pending: {
+        deposits: pendingDeposits?.c || 0,
+        withdrawals: pendingWithdrawals?.c || 0
+      },
+      alerts,
+      generated_at: new Date().toISOString()
+    };
+    return successResponse({ dashboard });
+  } catch (e) {
+    return errorResponse('Failed to build dashboard: ' + e.message, 500);
+  }
+}
+
+async function loadConfig(env) {
+  let cfgStr = await env.DOGLC_CONFIG.get('SYSTEM_CONFIG');
+  if (!cfgStr) {
+    // initialize default config
+    const defaults = {
+      RATES: { depositFeePercent: 0, withdrawalFeePercent: 0.5, commissionPercent: 1.0 },
+      EXCHANGE: { thbToDoglc: 10, doglcToUsdt: 0.03 },
+      BANK_ACCOUNTS: []
+    };
+    await env.DOGLC_CONFIG.put('SYSTEM_CONFIG', JSON.stringify(defaults));
+    return defaults;
+  }
+  const cfg = JSON.parse(cfgStr);
+  if (!cfg.RATES) cfg.RATES = { depositFeePercent: 0, withdrawalFeePercent: 0.5, commissionPercent: 1.0 };
+  if (!cfg.EXCHANGE) cfg.EXCHANGE = { thbToDoglc: 10, doglcToUsdt: 0.03 };
+  if (!cfg.BANK_ACCOUNTS) cfg.BANK_ACCOUNTS = [];
+  return cfg;
+}
+
+async function persistConfig(env, cfg) {
+  await env.DOGLC_CONFIG.put('SYSTEM_CONFIG', JSON.stringify(cfg));
 }
 
 async function logBankingOperation(operation, userId, data, env) {
