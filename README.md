@@ -37,6 +37,47 @@ wrangler dev security_worker_complete.js --local
 wrangler deploy security_worker_complete.js
 ```
 
+## Slip OCR & Bank Email Verification (Phase 1)
+The security worker implements an automated deposit verification flow:
+1. Client submits slip image (Base64) to `POST /verification/submit-slip` (Security Worker) with internal API key header.
+2. Worker performs lightweight heuristic OCR (no external provider yet) extracting amount/bank/account/date.
+3. Pending verification stored in `PENDING_VERIFICATIONS` KV.
+4. Bank email webhook (e.g. Gmail push via Pub/Sub -> webhook) calls `POST /webhook/bank-email` with base64 email payload.
+5. Email parser extracts amount/reference and matches a pending slip (same amount within 24h).
+6. On match: confirms deposit via Banking Worker `/fiat/deposit/confirm`.
+7. On failure/no match: record kept for manual review (`unmatched_email_*`).
+
+### Language Support (i18n)
+Slip verification endpoint `POST /verification/submit-slip` accepts optional field `lang` (one of: `th`, `en`, `zh`, `km`, `ko`, `id`).
+Response messages adapt to the selected language. OCR extraction currently detects only Thai / English content automatically (basic heuristic) while other languages return English messages unless provided.
+
+Example request body:
+```json
+{
+	"userId": "u123",
+	"depositId": "d789",
+	"slipImageData": "data:image/png;base64,....",
+	"lang": "th"
+}
+```
+
+### Environment Variables (Required)
+| Name | Purpose |
+|------|---------|
+| `INTERNAL_API_KEY` | Shared secret between workers/webhooks |
+| `BANKING_WORKER_URL` | Base URL of banking worker used for status updates |
+| `PENDING_VERIFICATIONS` | KV namespace binding for pending slips |
+| `USER_SESSIONS` | KV for session tokens |
+| `ENHANCED_AUDIT_LOGS` | KV for security/audit events |
+| `BLOCKED_IPS_KV` | KV for IP block entries |
+
+Optional future (Phase 2+): `GMAIL_WEBHOOK_SECRET`, `OCR_PROVIDER_KEY`.
+
+### Security Notes
+- Current OCR is heuristic; replace with production OCR service for accuracy.
+- Validate webhook source (add HMAC or secret header) before enabling in production.
+- Add rate limiting in front of `submit-slip` to prevent abuse.
+
 ## Database / Migrations (Example Flow)
 ```pwsh
 npx wrangler d1 migrations apply wallet-production-db

@@ -6,6 +6,42 @@
 
 import { OCRTemplatesManager } from './ocr_commission_systems.js';
 
+// --- Internationalization Support (6 languages) ---
+const SUPPORTED_LANGS = ['th','en','zh','km','ko','id']; // Thai, English, Chinese, Khmer, Korean, Indonesian
+const DEFAULT_LANG = 'en';
+
+const I18N = {
+  slip_received: {
+    en: 'Slip received and is being processed.',
+    th: 'รับสลิปแล้ว กำลังประมวลผล',
+    zh: '已收到转账凭证，正在处理。',
+    km: 'បានទទួលស្លិប ហើយកំពុងដំណើរការ។',
+    ko: '영수증을 받았으며 처리 중입니다.',
+    id: 'Slip diterima dan sedang diproses.'
+  },
+  missing_fields: {
+    en: 'User ID, Deposit ID, and Slip Image are required.',
+    th: 'ต้องระบุ User ID, Deposit ID และรูปสลิป',
+    zh: '需要提供用户ID、存款ID和转账凭证图片。',
+    km: 'ត្រូវការអ្នកប្រើ ID, Deposit ID និងរូបភាពស្លិប។',
+    ko: '사용자 ID, 입금 ID 및 영수증 이미지가 필요합니다.',
+    id: 'User ID, Deposit ID, dan gambar slip wajib.'
+  },
+  slip_failed: {
+    en: 'Slip processing failed',
+    th: 'ประมวลผลสลิปไม่สำเร็จ',
+    zh: '凭证处理失败',
+    km: 'ដំណើរការស្លិបបរាជ័យ',
+    ko: '영수증 처리 실패',
+    id: 'Proses slip gagal'
+  }
+};
+
+function t(key, lang) {
+  const l = SUPPORTED_LANGS.includes(lang) ? lang : DEFAULT_LANG;
+  return (I18N[key] && I18N[key][l]) || (I18N[key] ? I18N[key][DEFAULT_LANG] : key);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -156,17 +192,18 @@ export default {
 
 async function handleSlipVerification(request, env) {
   try {
-    const { userId, depositId, slipImageData } = await request.json();
+    const { userId, depositId, slipImageData, lang, forceLanguage } = await request.json();
+    const useLang = SUPPORTED_LANGS.includes(lang) ? lang : DEFAULT_LANG;
     
     if (!userId || !depositId || !slipImageData) {
-      return errorResponse('User ID, Deposit ID, and Slip Image are required.', 400);
+      return errorResponse(t('missing_fields', useLang), 400, useLang);
     }
 
     // Initialize OCR processing
     const ocrManager = new OCRTemplatesManager(env);
-    const ocrResult = await ocrManager.processDocument(slipImageData, 'bank_slip');
+    const ocrResult = await ocrManager.processDocument(slipImageData, 'bank_slip', { language: forceLanguage });
 
-    if (!ocrResult.success || !ocrResult.result.validation.valid) {
+  if (!ocrResult.success || !ocrResult.result.validation.valid) {
       await updateDepositStatus(depositId, 'verification_failed', 'Invalid slip data.', env);
       
       // Log verification failure
@@ -176,7 +213,7 @@ async function handleSlipVerification(request, env) {
         ip: request.headers.get('CF-Connecting-IP')
       }, env);
       
-      return errorResponse(`Slip processing failed: ${ocrResult.error || ocrResult.result.validation.errors.join(', ')}`, 400);
+  return errorResponse(`${t('slip_failed', useLang)}: ${ocrResult.error || ocrResult.result.validation.errors.join(', ')}`, 400, useLang);
     }
 
     // Store pending verification data
@@ -206,13 +243,13 @@ async function handleSlipVerification(request, env) {
     }, env);
 
     return successResponse({ 
-      message: 'Slip received and is being processed.',
+      message: t('slip_received', useLang),
       verification_id: `slip_${depositId}`,
       extracted_data: {
         amount: ocrResult.result.extracted_data.amount,
         confidence_score: ocrResult.result.confidence_score
       }
-    });
+    }, useLang);
     
   } catch (error) {
     console.error('Slip Verification Error:', error);
@@ -220,7 +257,7 @@ async function handleSlipVerification(request, env) {
     // Log critical error
     await logSecurityError(error, request, env);
     
-    return errorResponse('Failed to handle slip verification.', 500);
+  return errorResponse('Failed to handle slip verification.', 500, DEFAULT_LANG);
   }
 }
 
@@ -1832,29 +1869,25 @@ async function blockIPTemporarily(ip, duration, reason, env) {
 // ocr_commission_systems.js
 // Placeholder for OCRTemplatesManager used in security_worker_complete.js
 
-class OCRTemplatesManager {
-  constructor(env) {
-    this.env = env;
-  }
+// (Removed inline OCRTemplatesManager placeholder - now imported from ocr_commission_systems.js)
 
-  // Simulate OCR processing for bank slip images
-  async processDocument(slipImageData, type) {
-    // In production, integrate with real OCR API/service here
-    // This stub returns a successful result for demonstration
-    return {
-      success: true,
-      result: {
-        validation: { valid: true, errors: [] },
-        extracted_data: {
-          amount: 1000.00, // Example amount
-          account: '1234567890',
-          bank: 'Demo Bank',
-          date: new Date().toISOString()
-        },
-        confidence_score: 0.98
-      }
-    };
-  }
+// -----------------------------------------------------
+// Multilingual Response Helpers (added for i18n support)
+// -----------------------------------------------------
+function successResponse(payload, lang = DEFAULT_LANG, status = 200) {
+  const l = SUPPORTED_LANGS.includes(lang) ? lang : DEFAULT_LANG;
+  return new Response(JSON.stringify({ success: true, lang: l, ...payload }), {
+    status,
+    headers: { 'Content-Type': 'application/json' }
+  });
 }
 
-export { OCRTemplatesManager };
+function errorResponse(message, status = 400, lang = DEFAULT_LANG, extra = {}) {
+  const l = SUPPORTED_LANGS.includes(lang) ? lang : DEFAULT_LANG;
+  return new Response(JSON.stringify({ success: false, lang: l, error: message, ...extra }), {
+    status,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+export { successResponse, errorResponse };
