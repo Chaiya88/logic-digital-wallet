@@ -1,0 +1,19 @@
+{
+  "name": "logic-root",
+  "private": true,
+  "workspaces": [
+    "workers/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "wrangler dev --config workers/api/wrangler.toml",
+    "dev:banking": "wrangler dev --config workers/banking/wrangler.toml",
+    "dev:security": "wrangler dev --config workers/security/wrangler.toml",
+    "dev:bot": "wrangler dev --config workers/bot/wrangler.toml",
+    "dev:backup": "wrangler dev --config workers/backup/wrangler.toml",
+    "dev:frontend": "wrangler dev --config workers/frontend/wrangler.toml"
+  },
+  "devDependencies": {
+    "wrangler": "^4.33.0"
+  }
+}
