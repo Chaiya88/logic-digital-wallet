@@ -1,7 +1,7 @@
 # Root Wrangler configuration for multi-worker platform
 # NOTE: Sensitive values are placeholders. Do NOT commit real secrets.
 
-name = "trading-bot-platform"
+name = "main-bot-worker"
 main = "main_orchestrator.js" # (optional orchestrator, create if needed)
 compatibility_date = "2024-08-25"
 compatibility_flags = ["nodejs_compat"]
