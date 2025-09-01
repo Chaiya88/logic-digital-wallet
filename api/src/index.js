@@ -17,6 +17,29 @@ export default {
         case '/internal/audit':
           if (request.method === 'POST') {
             return await handleAuditLog(request, env, corsHeaders);
+          } else if (request.method === 'GET') {
+            return new Response(JSON.stringify({
+              service: 'Digital Wallet API',
+              endpoint: '/internal/audit',
+              method_required: 'POST',
+              authentication: 'Bearer token required',
+              description: 'Audit logging endpoint for security events',
+              usage: {
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer YOUR_AUDIT_SHARED_KEY',
+                  'Content-Type': 'application/json'
+                },
+                body: {
+                  event_type: 'string (required)',
+                  user: 'string (required)',
+                  metadata: 'object (optional)'
+                }
+              }
+            }), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
           }
           break;
           
