@@ -1,0 +1,17 @@
+name = "banking-worker"
+main = "src/index.js"
+compatibility_date = "2024-08-30"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+SERVICE_NAME = "Banking Worker"
+INTERNAL_API_KEY = "internal-api-secure-2025-wallet"
+AUDIT_SHARED_KEY = "secure-audit-key-2025"
+MAIN_API_URL = "https://logic-digital-wallet-api.jameharu-no1.workers.dev"
+SECURITY_WORKER_URL = "https://security-worker.jameharu-no1.workers.dev"
+
+[[d1_databases]]
+binding = "DATABASE"
+database_name = "wallet-production-db"
+database_id = "534c2f1f-a529-46a5-8ede-e294d3df9d31"

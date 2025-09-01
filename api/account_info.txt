@@ -1,0 +1,30 @@
+
+ ⛅️ wrangler 4.33.1
+───────────────────
+Getting User settings...
+👋 You are logged in with an OAuth Token, associated with the email jameharu.no1@gmail.com.
+┌──────────────┬──────────────────────────────────┐
+│ Account Name │ Account ID                       │
+├──────────────┼──────────────────────────────────┤
+│ Doglc BBJ    │ 85bcd386f06541844632ecb984afa9fb │
+└──────────────┴──────────────────────────────────┘
+🔓 Token Permissions:
+Scope (Access)
+- account (read)
+- user (read)
+- workers (write)
+- workers_kv (write)
+- workers_routes (write)
+- workers_scripts (write)
+- workers_tail (read)
+- d1 (write)
+- pages (write)
+- zone (read)
+- ssl_certs (write)
+- ai (write)
+- queues (write)
+- pipelines (write)
+- secrets_store (write)
+- containers (write)
+- cloudchamber (write)
+- offline_access 

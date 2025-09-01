@@ -1,35 +1,44 @@
-﻿name = "logic-digital-wallet-api"
+name = "logic-digital-wallet-api"
 main = "src/index.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-08-30"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "production"
 SERVICE_NAME = "Digital Wallet API"
+AUDIT_SHARED_KEY = "secure-audit-key-2025"
+BANKING_WORKER_URL = "https://banking-worker.jameharu-no1.workers.dev"
+SECURITY_WORKER_URL = "https://security-worker.jameharu-no1.workers.dev"
+MAIN_BOT_WORKER_URL = "https://main-bot-worker.jameharu-no1.workers.dev"
+INTERNAL_API_KEY = "internal-api-secure-2025-wallet"
 
 [[d1_databases]]
 binding = "DATABASE"
 database_name = "wallet-production-db"
-database_id = "85bcd386f06541844632ecb984afa9fb-prod-db"
+database_id = "534c2f1f-a529-46a5-8ede-e294d3df9d31"
 
 [env.development]
 name = "logic-digital-wallet-api-dev"
-
 [env.development.vars]
 ENVIRONMENT = "development"
+BANKING_WORKER_URL = "https://banking-worker.jameharu-no1.workers.dev"
+SECURITY_WORKER_URL = "https://security-worker.jameharu-no1.workers.dev"
+INTERNAL_API_KEY = "internal-api-secure-2025-wallet-dev"
 
 [[env.development.d1_databases]]
 binding = "DATABASE"
 database_name = "wallet-development-db"
-database_id = "85bcd386f06541844632ecb984afa9fb-dev-db"
+database_id = "a274e90f-9263-418d-8f06-60c284a1838d"
 
 [env.staging]
 name = "logic-digital-wallet-api-staging"
-
 [env.staging.vars]
 ENVIRONMENT = "staging"
+BANKING_WORKER_URL = "https://banking-worker.jameharu-no1.workers.dev"
+SECURITY_WORKER_URL = "https://security-worker.jameharu-no1.workers.dev"
+INTERNAL_API_KEY = "internal-api-secure-2025-wallet-staging"
 
 [[env.staging.d1_databases]]
 binding = "DATABASE"
 database_name = "wallet-staging-db"
-database_id = "85bcd386f06541844632ecb984afa9fb-staging-db"
+database_id = "137549a1-a1ee-4746-a030-0395211d09e1"

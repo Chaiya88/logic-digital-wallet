@@ -1,0 +1,1 @@
+{"status":"operational","service":"Digital Wallet API","version":"1.0.0","environment":"production","features":{"wallet_management":"enabled","transaction_processing":"enabled","audit_logging":"enabled","health_monitoring":"enabled"},"last_deployment":"2025-08-31T04:42:22.275Z","timestamp":"2025-08-31T04:42:22.275Z"}
