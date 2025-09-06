@@ -52,3 +52,8 @@ wrangler.toml.local
 
 # Misc / swap
 *.swp
+
+# Deployment export files
+deployed-files-export/
+deployment-manifest.html
+deployment-manifest.json
