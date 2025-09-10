@@ -9,7 +9,7 @@ export default {
         const webhookUrl = 'https://teenoi96.org/webhook/telegram';
         
         // Set webhook
-        const setWebhookResponse = await fetch(https://api.telegram.org/bot+botToken+/setWebhook, {
+        const setWebhookResponse = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -21,7 +21,7 @@ export default {
         const setResult = await setWebhookResponse.json();
         
         // Get webhook info
-        const getWebhookResponse = await fetch(https://api.telegram.org/bot+botToken+/getWebhookInfo);
+        const getWebhookResponse = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
         const getResult = await getWebhookResponse.json();
         
         return new Response(JSON.stringify({

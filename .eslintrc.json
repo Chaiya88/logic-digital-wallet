@@ -1,0 +1,60 @@
+{
+  "extends": ["standard"],
+  "env": {
+    "es2022": true,
+    "worker": true,
+    "node": true,
+    "browser": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "rules": {
+    "no-console": "warn",
+    "prefer-const": "error",
+    "no-var": "error",
+    "no-unused-vars": "warn",
+    "no-undef": "error",
+    "semi": ["error", "always"],
+    "quotes": ["error", "single"],
+    "indent": ["error", 2],
+    "comma-dangle": ["error", "never"],
+    "eol-last": ["error", "always"],
+    "no-trailing-spaces": "error",
+    "object-curly-spacing": ["error", "always"],
+    "array-bracket-spacing": ["error", "never"],
+    "space-before-blocks": "error",
+    "keyword-spacing": "error",
+    "space-infix-ops": "error",
+    "no-multiple-empty-lines": ["error", { "max": 2 }],
+    "brace-style": ["error", "1tbs"],
+    "camelcase": ["error", { "properties": "never" }],
+    "no-irregular-whitespace": "error",
+    "no-mixed-spaces-and-tabs": "error"
+  },
+  "globals": {
+    "Telegram": "readonly",
+    "WebApp": "readonly",
+    "addEventListener": "readonly",
+    "fetch": "readonly",
+    "Response": "readonly",
+    "Request": "readonly",
+    "Headers": "readonly",
+    "URL": "readonly",
+    "crypto": "readonly",
+    "TextEncoder": "readonly",
+    "TextDecoder": "readonly",
+    "AbortSignal": "readonly",
+    "FormData": "readonly"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    "backup/",
+    "archive/",
+    "*.min.js",
+    "*.backup",
+    "temp*"
+  ]
+}

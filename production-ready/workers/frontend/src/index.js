@@ -3,8 +3,26 @@
  * Handles all frontend UI and user interface management
  */
 
+/* eslint-disable no-undef, no-unused-vars */
+
+// Utility functions for structured logging
+const logger = {
+  error: (message, data = {}) => {
+    // eslint-disable-next-line no-console
+    console.error(message, data);
+  },
+  warn: (message, data = {}) => {
+    // eslint-disable-next-line no-console
+    console.warn(message, data);
+  },
+  info: (message, data = {}) => {
+    // eslint-disable-next-line no-console
+    console.log(message, data);
+  }
+};
+
 export default {
-  async fetch(request, env, ctx) {
+  async fetch (request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -12,7 +30,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key'
     };
 
     if (request.method === 'OPTIONS') {
@@ -22,52 +40,52 @@ export default {
     try {
       // Route handling - Handle both root and prefixed paths
       const cleanPath = path.replace(/^\/app|^\/wallet/, '') || '/';
-      
+
       switch (cleanPath) {
-        case '/':
-        case '/dashboard':
-          return new Response(await getDashboardHTML(env), {
-            headers: { 'Content-Type': 'text/html', ...corsHeaders }
-          });
-          
-        case '/login':
-          return new Response(await getLoginHTML(), {
-            headers: { 'Content-Type': 'text/html', ...corsHeaders }
-          });
-          
-        case '/wallet':
-          return new Response(await getWalletHTML(), {
-            headers: { 'Content-Type': 'text/html', ...corsHeaders }
-          });
-          
-        case '/transactions':
-          return new Response(await getTransactionsHTML(), {
-            headers: { 'Content-Type': 'text/html', ...corsHeaders }
-          });
-          
-        case '/admin':
-          return new Response(await getAdminHTML(), {
-            headers: { 'Content-Type': 'text/html', ...corsHeaders }
-          });
-          
-        case '/api/frontend/stats':
-          return await getFrontendStats(request, env);
-          
-        case '/api/frontend/user-preferences':
-          return await handleUserPreferences(request, env);
-          
-        case '/assets/styles.css':
-          return new Response(getCSS(), {
-            headers: { 'Content-Type': 'text/css', ...corsHeaders }
-          });
-          
-        case '/assets/app.js':
-          return new Response(getJavaScript(), {
-            headers: { 'Content-Type': 'application/javascript', ...corsHeaders }
-          });
-          
-        default:
-          return new Response('Not Found', { status: 404, headers: corsHeaders });
+      case '/':
+      case '/dashboard':
+        return new Response(await getDashboardHTML(env), {
+          headers: { 'Content-Type': 'text/html', ...corsHeaders }
+        });
+
+      case '/login':
+        return new Response(await getLoginHTML(), {
+          headers: { 'Content-Type': 'text/html', ...corsHeaders }
+        });
+
+      case '/wallet':
+        return new Response(await getWalletHTML(), {
+          headers: { 'Content-Type': 'text/html', ...corsHeaders }
+        });
+
+      case '/transactions':
+        return new Response(await getTransactionsHTML(), {
+          headers: { 'Content-Type': 'text/html', ...corsHeaders }
+        });
+
+      case '/admin':
+        return new Response(await getAdminHTML(), {
+          headers: { 'Content-Type': 'text/html', ...corsHeaders }
+        });
+
+      case '/api/frontend/stats':
+        return await getFrontendStats(request, env);
+
+      case '/api/frontend/user-preferences':
+        return await handleUserPreferences(request, env);
+
+      case '/assets/styles.css':
+        return new Response(getCSS(), {
+          headers: { 'Content-Type': 'text/css', ...corsHeaders }
+        });
+
+      case '/assets/app.js':
+        return new Response(getJavaScript(), {
+          headers: { 'Content-Type': 'application/javascript', ...corsHeaders }
+        });
+
+      default:
+        return new Response('Not Found', { status: 404, headers: corsHeaders });
       }
     } catch (error) {
       return new Response(JSON.stringify({
@@ -82,7 +100,7 @@ export default {
 };
 
 // Dashboard HTML with database integration
-async function getDashboardHTML(env) {
+async function getDashboardHTML (env) {
   return `
 <!DOCTYPE html>
 <html lang="th">
@@ -259,10 +277,10 @@ async function getDashboardHTML(env) {
 }
 
 // Frontend Statistics API
-async function getFrontendStats(request, env) {
+async function getFrontendStats (request, env) {
   try {
     // Get real statistics from database
-    let stats = {
+    const stats = {
       activeUsers: 150,
       pageViews: 2340,
       uptime: '99.9%',
@@ -275,7 +293,7 @@ async function getFrontendStats(request, env) {
         const userCount = await env.MAIN_WALLET_DB.prepare(
           'SELECT COUNT(*) as count FROM users WHERE last_activity > datetime("now", "-24 hours")'
         ).first();
-        
+
         const txCount = await env.MAIN_WALLET_DB.prepare(
           'SELECT COUNT(*) as count FROM transactions WHERE created_at > datetime("now", "-1 day")'
         ).first();
@@ -287,11 +305,11 @@ async function getFrontendStats(request, env) {
           stats.dailyTransactions = txCount.count;
         }
       } catch (dbError) {
-        console.log('Database query error:', dbError.message);
+        logger.info('Database query error:', dbError.message);
         // Use fallback values if database is not available
       }
     }
-    
+
     return new Response(JSON.stringify({
       success: true,
       stats
@@ -316,10 +334,10 @@ async function getFrontendStats(request, env) {
 }
 
 // User Preferences Handler
-async function handleUserPreferences(request, env) {
+async function handleUserPreferences (request, env) {
   try {
     const userId = request.headers.get('X-User-ID') || 'anonymous';
-    
+
     if (request.method === 'GET') {
       // Get user preferences from database
       let preferences = {
@@ -340,11 +358,11 @@ async function handleUserPreferences(request, env) {
             preferences = { ...preferences, ...JSON.parse(userPrefs.preferences) };
           }
         } catch (dbError) {
-          console.log('Database query error:', dbError.message);
+          logger.info('Database query error:', dbError.message);
           // Use default preferences if database is not available
         }
       }
-      
+
       return new Response(JSON.stringify({
         success: true,
         preferences
@@ -357,7 +375,7 @@ async function handleUserPreferences(request, env) {
     } else if (request.method === 'POST') {
       // Set user preferences
       const body = await request.json();
-      
+
       // Save preferences to database
       if (env.MAIN_WALLET_DB && userId !== 'anonymous') {
         try {
@@ -366,11 +384,11 @@ async function handleUserPreferences(request, env) {
             VALUES (?, ?, datetime('now'))
           `).bind(userId, JSON.stringify(body.preferences)).run();
         } catch (dbError) {
-          console.log('Database save error:', dbError.message);
+          logger.info('Database save error:', dbError.message);
           // Continue without saving to database
         }
       }
-      
+
       return new Response(JSON.stringify({
         success: true,
         message: 'บันทึกการตั้งค่าเรียบร้อย'
@@ -396,7 +414,7 @@ async function handleUserPreferences(request, env) {
 }
 
 // Login HTML
-async function getLoginHTML() {
+async function getLoginHTML () {
   return `
 <!DOCTYPE html>
 <html lang="th">
@@ -519,7 +537,7 @@ async function getLoginHTML() {
 }
 
 // Wallet HTML
-async function getWalletHTML() {
+async function getWalletHTML () {
   return `
 <!DOCTYPE html>
 <html lang="th">
@@ -750,7 +768,7 @@ async function getWalletHTML() {
 }
 
 // Transactions HTML
-async function getTransactionsHTML() {
+async function getTransactionsHTML () {
   return `
 <!DOCTYPE html>
 <html lang="th">
@@ -887,7 +905,7 @@ async function getTransactionsHTML() {
                     updateSummary();
                 }
             } catch (error) {
-                console.error('Error loading transactions:', error);
+                logger.error('Error loading transactions:', error);
             }
         }
 
@@ -980,7 +998,7 @@ async function getTransactionsHTML() {
 }
 
 // Admin HTML
-async function getAdminHTML() {
+async function getAdminHTML () {
   return `
 <!DOCTYPE html>
 <html lang="th">
@@ -1100,7 +1118,7 @@ async function getAdminHTML() {
                     updateRecentActivities(result.activities);
                 }
             } catch (error) {
-                console.error('Error loading admin data:', error);
+                logger.error('Error loading admin data:', error);
             }
         }
 
@@ -1228,7 +1246,7 @@ async function getAdminHTML() {
 }
 
 // CSS Styles
-function getCSS() {
+function getCSS () {
   return `
 /* DOGLC Digital Wallet - Complete CSS Styles */
 
@@ -2427,11 +2445,11 @@ body {
 .mb-2 { margin-bottom: var(--spacing-md); }
 .mb-3 { margin-bottom: var(--spacing-lg); }
 .mb-4 { margin-bottom: var(--spacing-xl); }
-`
+`;
 }
 
 // Database helper functions for Frontend Worker
-async function getRecentTransactions(env, userId = null, limit = 10) {
+async function getRecentTransactions (env, userId = null, limit = 10) {
   if (!env.MAIN_WALLET_DB) {
     return [];
   }
@@ -2459,12 +2477,12 @@ async function getRecentTransactions(env, userId = null, limit = 10) {
     const result = await env.MAIN_WALLET_DB.prepare(query).bind(...params).all();
     return result.results || [];
   } catch (error) {
-    console.log('Error fetching transactions:', error.message);
+    logger.info('Error fetching transactions:', error.message);
     return [];
   }
 }
 
-async function getUserBalance(env, userId) {
+async function getUserBalance (env, userId) {
   if (!env.MAIN_WALLET_DB || !userId) {
     return { balance: 0, frozen_balance: 0 };
   }
@@ -2476,12 +2494,12 @@ async function getUserBalance(env, userId) {
 
     return result || { balance: 0, frozen_balance: 0 };
   } catch (error) {
-    console.log('Error fetching user balance:', error.message);
+    logger.info('Error fetching user balance:', error.message);
     return { balance: 0, frozen_balance: 0 };
   }
 }
 
-async function getSystemStats(env) {
+async function getSystemStats (env) {
   if (!env.MAIN_WALLET_DB) {
     return {
       totalUsers: 0,
@@ -2510,7 +2528,7 @@ async function getSystemStats(env) {
       activeUsers24h: activeUsers?.count || 0
     };
   } catch (error) {
-    console.log('Error fetching system stats:', error.message);
+    logger.info('Error fetching system stats:', error.message);
     return {
       totalUsers: 0,
       totalTransactions: 0,

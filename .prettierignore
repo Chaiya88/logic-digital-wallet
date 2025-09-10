@@ -1,0 +1,22 @@
+# Prettier ignore patterns
+node_modules/
+dist/
+.build/
+.tmp/
+backup/
+archive/
+*.min.js
+*.min.css
+*.backup
+temp*
+*.log
+.git/
+.env*
+wrangler.toml
+*.toml
+package-lock.json
+yarn.lock
+reports/
+*.pdf
+*.zip
+*.tar.gz

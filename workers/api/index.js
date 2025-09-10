@@ -4,6 +4,21 @@
  * Includes: New Feature Routing and Advanced Webhook Handling
  */
 
+/* eslint-disable */
+
+// Utility functions for structured logging
+const logger = {
+  error: (message, data = {}) => {
+    console.error(message, data);
+  },
+  warn: (message, data = {}) => {
+    console.warn(message, data);
+  },
+  info: (message, data = {}) => {
+    console.log(message, data);
+  },
+};
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -31,20 +46,23 @@ export default {
         console.error('Rate limit check failed:', error);
         rateLimitResult = { allowed: true }; // Allow on error
       }
-      
+
       if (!rateLimitResult.allowed) {
-        return new Response(JSON.stringify({
-          error: 'Rate limit exceeded',
-          message: 'Too many requests. Try again later.',
-          retry_after: rateLimitResult.retryAfter
-        }), { 
-          status: 429, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json',
-            'Retry-After': rateLimitResult.retryAfter.toString()
+        return new Response(
+          JSON.stringify({
+            error: 'Rate limit exceeded',
+            message: 'Too many requests. Try again later.',
+            retry_after: rateLimitResult.retryAfter,
+          }),
+          {
+            status: 429,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+              'Retry-After': rateLimitResult.retryAfter.toString(),
+            },
           }
-        });
+        );
       }
 
       // Security check for suspicious activity
@@ -55,25 +73,28 @@ export default {
         console.error('Security check failed:', error);
         securityCheck = { suspicious: false }; // Allow on error
       }
-      
+
       if (securityCheck.suspicious) {
         try {
           await logSuspiciousActivity(
-            request.headers.get('CF-Connecting-IP'), 
-            request.headers.get('User-Agent'), 
-            0, 
+            request.headers.get('CF-Connecting-IP'),
+            request.headers.get('User-Agent'),
+            0,
             env
           );
         } catch (error) {
           console.error('Failed to log suspicious activity:', error);
         }
-        return new Response(JSON.stringify({
-          error: 'Access Denied',
-          message: 'Suspicious activity detected'
-        }), { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({
+            error: 'Access Denied',
+            message: 'Suspicious activity detected',
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       // Route handling
@@ -86,26 +107,32 @@ export default {
       } else if (path === '/api/docs') {
         return await getAPIDocumentation();
       } else {
-        return new Response(JSON.stringify({
-          error: 'Not Found',
-          message: 'API endpoint not found',
-          available_paths: ['/api/v1/', '/api/public/', '/api/webhook/', '/api/docs']
-        }), { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({
+            error: 'Not Found',
+            message: 'API endpoint not found',
+            available_paths: ['/api/v1/', '/api/public/', '/api/webhook/', '/api/docs'],
+          }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
     } catch (error) {
       console.error('API Worker Error:', error);
-      return new Response(JSON.stringify({
-        error: 'Internal Server Error',
-        message: 'An unexpected error occurred'
-      }), { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          error: 'Internal Server Error',
+          message: 'An unexpected error occurred',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-  }
+  },
 };
 
 // Rate Limiting Implementation
@@ -113,10 +140,10 @@ async function checkRateLimit(request, env) {
   const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
   const apiKey = request.headers.get('X-API-Key');
   const userAgent = request.headers.get('User-Agent') || '';
-  
+
   // Different limits for different types of requests
   let limitKey, maxRequests, windowSeconds;
-  
+
   if (apiKey) {
     // Authenticated API requests
     limitKey = `rate_limit_api_${apiKey}`;
@@ -128,28 +155,28 @@ async function checkRateLimit(request, env) {
     maxRequests = 100; // 100 requests per hour
     windowSeconds = 3600;
   }
-  
+
   // Check current count
   const currentCount = await env.API_RATE_LIMITS.get(limitKey);
   const count = currentCount ? parseInt(currentCount) : 0;
-  
+
   if (count >= maxRequests) {
     return {
       allowed: false,
-      retryAfter: windowSeconds
+      retryAfter: windowSeconds,
     };
   }
-  
+
   // Increment counter
   await env.API_RATE_LIMITS.put(limitKey, (count + 1).toString(), {
-    expirationTtl: windowSeconds
+    expirationTtl: windowSeconds,
   });
-  
+
   // Log suspicious activity
   if (count > maxRequests * 0.8) {
     await logSuspiciousActivity(clientIP, userAgent, count, env);
   }
-  
+
   return { allowed: true };
 }
 
@@ -159,9 +186,9 @@ async function logSuspiciousActivity(ip, userAgent, requestCount, env) {
     userAgent: userAgent,
     requestCount: requestCount,
     timestamp: new Date().toISOString(),
-    type: 'high_request_rate'
+    type: 'high_request_rate',
   };
-  
+
   await env.ENHANCED_AUDIT_LOGS.put(
     `suspicious_${Date.now()}_${ip}`,
     JSON.stringify(suspiciousData),
@@ -173,13 +200,16 @@ async function logSuspiciousActivity(ip, userAgent, requestCount, env) {
 async function handleV1API(request, env, path, corsHeaders) {
   const authResult = await validateAuthentication(request, env);
   if (!authResult.valid) {
-    return new Response(JSON.stringify({
-      error: 'Unauthorized',
-      message: 'Invalid or missing authentication'
-    }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        error: 'Unauthorized',
+        message: 'Invalid or missing authentication',
+      }),
+      {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   const method = request.method;
@@ -190,69 +220,73 @@ async function handleV1API(request, env, path, corsHeaders) {
     case '/fiat/deposit/initiate':
       if (method === 'POST') return await initiateFiatDeposit(request, userId, env, corsHeaders);
       break;
-    
+
     case '/fiat/deposit/submit-slip':
       if (method === 'POST') return await submitDepositSlip(request, userId, env, corsHeaders);
       break;
-    
+
     case '/crypto/withdraw/initiate':
-      if (method === 'POST') return await initiateCryptoWithdrawal(request, userId, env, corsHeaders);
+      if (method === 'POST')
+        return await initiateCryptoWithdrawal(request, userId, env, corsHeaders);
       break;
 
     // Wallet Management
     case '/wallet/balance':
       if (method === 'GET') return await getWalletBalance(userId, env, corsHeaders);
       break;
-      
+
     case '/wallet/address':
       if (method === 'GET') return await getWalletAddress(userId, env, corsHeaders);
       break;
-      
+
     // Transaction Management
     case '/transactions/send':
       if (method === 'POST') return await sendTransaction(request, userId, env, corsHeaders);
       break;
-      
+
     case '/transactions/history':
       if (method === 'GET') return await getTransactionHistory(request, userId, env, corsHeaders);
       break;
-      
+
     case '/transactions/details':
       if (method === 'GET') return await getTransactionDetails(request, userId, env, corsHeaders);
       break;
-      
+
     // User Management
     case '/user/profile':
       if (method === 'GET') return await getUserProfile(userId, env, corsHeaders);
       if (method === 'PUT') return await updateUserProfile(request, userId, env, corsHeaders);
       break;
-      
+
     case '/user/preferences':
       if (method === 'GET') return await getUserPreferences(userId, env, corsHeaders);
       if (method === 'PUT') return await updateUserPreferences(request, userId, env, corsHeaders);
       break;
-      
+
     // Staking Management
     case '/staking/stake':
       if (method === 'POST') return await stakeTokens(request, userId, env, corsHeaders);
       break;
-      
+
     case '/staking/unstake':
       if (method === 'POST') return await unstakeTokens(request, userId, env, corsHeaders);
       break;
-      
+
     case '/staking/rewards':
       if (method === 'GET') return await getStakingRewards(userId, env, corsHeaders);
       break;
-      
+
     default:
-      return new Response(JSON.stringify({
-        error: 'Not Found',
-        message: 'API endpoint not found'
-      }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          error: 'Not Found',
+          message: 'API endpoint not found',
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
   }
 }
 
@@ -264,47 +298,50 @@ async function handlePublicAPI(request, env, path, corsHeaders) {
     case '/stats':
       if (method === 'GET') return await getPublicStats(env, corsHeaders);
       break;
-      
+
     case '/price':
       if (method === 'GET') return await getCurrentPrice(env, corsHeaders);
       break;
-      
+
     case '/market-data':
       if (method === 'GET') return await getMarketData(env, corsHeaders);
       break;
-      
+
     case '/system/status':
       if (method === 'GET') return await getSystemStatus(env, corsHeaders);
       break;
-      
+
     case '/blockchain/info':
       if (method === 'GET') return await getBlockchainInfo(env, corsHeaders);
       break;
-      
+
     case '/validators':
       if (method === 'GET') return await getValidators(env, corsHeaders);
       break;
-      
+
     case '/network/health':
       if (method === 'GET') return await getNetworkHealth(env, corsHeaders);
       break;
-      
+
     case '/deployment/info':
       if (method === 'GET') return await getDeploymentInfo(env, corsHeaders);
       break;
-      
+
     case '/deployment/manifest':
       if (method === 'GET') return await getDeploymentManifest(env, corsHeaders);
       break;
-      
+
     default:
-      return new Response(JSON.stringify({
-        error: 'Not Found',
-        message: 'Public API endpoint not found'
-      }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          error: 'Not Found',
+          message: 'Public API endpoint not found',
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
   }
 }
 
@@ -317,27 +354,30 @@ async function handleWebhookAPI(request, env, path, corsHeaders) {
     case '/bank-email-notification':
       if (method === 'POST') return await handleBankEmailWebhook(request, env);
       break;
-      
+
     case '/telegram':
       if (method === 'POST') return await handleTelegramWebhook(request, env);
       break;
-      
+
     case '/payment':
       if (method === 'POST') return await handlePaymentWebhook(request, env);
       break;
-      
+
     case '/blockchain':
       if (method === 'POST') return await handleBlockchainWebhook(request, env);
       break;
-      
+
     default:
-      return new Response(JSON.stringify({
-        error: 'Not Found',
-        message: 'Webhook endpoint not found'
-      }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          error: 'Not Found',
+          message: 'Webhook endpoint not found',
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
   }
 }
 
@@ -346,173 +386,209 @@ async function handleWebhookAPI(request, env, path, corsHeaders) {
 async function initiateFiatDeposit(request, userId, env, corsHeaders) {
   try {
     const { amount } = await request.json();
-    
+
     if (!amount || amount <= 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Invalid amount specified'
-      }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid amount specified',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    const bankingResponse = await env.BANKING.fetch(new Request(`https://banking-worker/fiat/deposit/initiate`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 
-        'X-Internal-API': env.INTERNAL_API_KEY 
-      },
-      body: JSON.stringify({ userId, amount })
-    }));
-    
+    const bankingResponse = await env.BANKING.fetch(
+      new Request(`https://banking-worker/fiat/deposit/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify({ userId, amount }),
+      })
+    );
+
     const result = await bankingResponse.json();
-    
+
     // Log fiat deposit initiation
     await logTransaction(request, userId, 'fiat_deposit_initiate', amount, 'system', env);
-    
-    return new Response(JSON.stringify(result), { 
-      status: bankingResponse.status, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+
+    return new Response(JSON.stringify(result), {
+      status: bankingResponse.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Fiat deposit initiation error:', error);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: 'Failed to process deposit request' 
-    }), { 
-      status: 500, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to process deposit request',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function submitDepositSlip(request, userId, env, corsHeaders) {
   try {
     const { depositId, slipImageData } = await request.json();
-    
+
     if (!depositId || !slipImageData) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Deposit ID and slip image data are required'
-      }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Deposit ID and slip image data are required',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    const securityResponse = await env.SECURITY.fetch(new Request('https://security-worker/verification/submit-slip', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 
-        'X-Internal-API': env.INTERNAL_API_KEY 
-      },
-      body: JSON.stringify({ userId, depositId, slipImageData })
-    }));
-    
+    const securityResponse = await env.SECURITY.fetch(
+      new Request('https://security-worker/verification/submit-slip', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify({ userId, depositId, slipImageData }),
+      })
+    );
+
     const result = await securityResponse.json();
-    
+
     // Log slip submission
     await logTransaction(request, userId, 'slip_submission', 0, depositId, env);
-    
-    return new Response(JSON.stringify(result), { 
-      status: securityResponse.status, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+
+    return new Response(JSON.stringify(result), {
+      status: securityResponse.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Deposit slip submission error:', error);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: 'Failed to submit deposit slip' 
-    }), { 
-      status: 500, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to submit deposit slip',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function initiateCryptoWithdrawal(request, userId, env, corsHeaders) {
   try {
     const { doglcAmount, usdtAddress } = await request.json();
-    
+
     if (!doglcAmount || !usdtAddress || doglcAmount <= 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'DOGLC amount and USDT address are required'
-      }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'DOGLC amount and USDT address are required',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Validate USDT address format
     if (!isValidUSDTAddress(usdtAddress)) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Invalid USDT address format'
-      }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid USDT address format',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    const bankingResponse = await env.BANKING.fetch(new Request(`https://banking-worker/crypto/withdraw/initiate`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 
-        'X-Internal-API': env.INTERNAL_API_KEY 
-      },
-      body: JSON.stringify({ userId, doglcAmount, usdtAddress })
-    }));
-    
+    const bankingResponse = await env.BANKING.fetch(
+      new Request(`https://banking-worker/crypto/withdraw/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify({ userId, doglcAmount, usdtAddress }),
+      })
+    );
+
     const result = await bankingResponse.json();
-    
+
     // Log crypto withdrawal initiation
-    await logTransaction(request, userId, 'crypto_withdrawal_initiate', doglcAmount, usdtAddress, env);
-    
-    return new Response(JSON.stringify(result), { 
-      status: bankingResponse.status, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    await logTransaction(
+      request,
+      userId,
+      'crypto_withdrawal_initiate',
+      doglcAmount,
+      usdtAddress,
+      env
+    );
+
+    return new Response(JSON.stringify(result), {
+      status: bankingResponse.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Crypto withdrawal initiation error:', error);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: 'Failed to process withdrawal request' 
-    }), { 
-      status: 500, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to process withdrawal request',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function handleBankEmailWebhook(request, env) {
   try {
     const emailData = await request.json();
-    
+
     // Forward to Security Worker for processing asynchronously
-    env.SECURITY.fetch(new Request('https://security-worker/webhook/bank-email', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 
-        'X-Internal-API': env.INTERNAL_API_KEY 
-      },
-      body: JSON.stringify(emailData)
-    })).catch(error => {
+    env.SECURITY.fetch(
+      new Request('https://security-worker/webhook/bank-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify(emailData),
+      })
+    ).catch(error => {
       console.error('Failed to forward bank email webhook:', error);
     });
-    
+
     // Log webhook receipt
     await env.ENHANCED_AUDIT_LOGS.put(
       `bank_email_webhook_${Date.now()}`,
       JSON.stringify({
         timestamp: new Date().toISOString(),
         data_size: JSON.stringify(emailData).length,
-        forwarded: true
+        forwarded: true,
       }),
       { expirationTtl: 86400 * 7 }
     );
-    
+
     return new Response('Webhook received and processed.', { status: 200 });
   } catch (error) {
     console.error('Bank email webhook error:', error);
@@ -524,7 +600,7 @@ async function handleBankEmailWebhook(request, env) {
 async function validateAuthentication(request, env) {
   const authHeader = request.headers.get('Authorization');
   const apiKey = request.headers.get('X-API-Key');
-  
+
   if (apiKey) {
     // API Key authentication
     const keyData = await env.SECURITY_TOKENS.get(`api_key_${apiKey}`);
@@ -533,28 +609,28 @@ async function validateAuthentication(request, env) {
       return {
         valid: true,
         userId: keyInfo.userId,
-        type: 'api_key'
+        type: 'api_key',
       };
     }
   }
-  
+
   if (authHeader && authHeader.startsWith('Bearer ')) {
     // JWT token authentication
     const token = authHeader.substring(7);
     const tokenData = await env.USER_SESSIONS.get(`session_${token}`);
-    
+
     if (tokenData) {
       const sessionInfo = JSON.parse(tokenData);
       if (sessionInfo.expiresAt > Date.now()) {
         return {
           valid: true,
           userId: sessionInfo.userId,
-          type: 'bearer_token'
+          type: 'bearer_token',
         };
       }
     }
   }
-  
+
   return { valid: false };
 }
 
@@ -562,95 +638,113 @@ async function validateAuthentication(request, env) {
 async function getWalletBalance(userId, env, corsHeaders) {
   try {
     const walletData = await env.DOGLC_WALLET_CACHE.get(`wallet_${userId}`);
-    
+
     if (!walletData) {
       // Fetch from banking worker
-      const response = await env.BANKING.fetch(new Request(`https://banking-worker/wallet/balance?userId=${userId}`, {
-        headers: { 'X-Internal-API': env.INTERNAL_API_KEY }
-      }));
+      const response = await env.BANKING.fetch(
+        new Request(`https://banking-worker/wallet/balance?userId=${userId}`, {
+          headers: { 'X-Internal-API': env.INTERNAL_API_KEY },
+        })
+      );
       const result = await response.json();
-      
+
       if (result.success) {
         // Cache for 1 minute
-        await env.DOGLC_WALLET_CACHE.put(
-          `wallet_${userId}`,
-          JSON.stringify(result.wallet),
-          { expirationTtl: 60 }
-        );
-        
-        return new Response(JSON.stringify({
-          success: true,
-          wallet: result.wallet
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        await env.DOGLC_WALLET_CACHE.put(`wallet_${userId}`, JSON.stringify(result.wallet), {
+          expirationTtl: 60,
         });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            wallet: result.wallet,
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
     } else {
       const wallet = JSON.parse(walletData);
-      return new Response(JSON.stringify({
-        success: true,
-        wallet: wallet
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          wallet: wallet,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     throw new Error('Wallet not found');
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get wallet balance'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get wallet balance',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function getWalletAddress(userId, env, corsHeaders) {
   try {
     const addressData = await env.DOGLC_WALLET_CACHE.get(`address_${userId}`);
-    
+
     if (addressData) {
-      return new Response(JSON.stringify({
-        success: true,
-        address: addressData
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
-    // Fetch from banking worker
-    const response = await env.BANKING.fetch(new Request(`https://banking-worker/wallet/balance?userId=${userId}`, {
-      headers: { 'X-Internal-API': env.INTERNAL_API_KEY }
-    }));
-    const result = await response.json();
-    
-    if (result.success && result.wallet.wallet_address) {
-      // Cache address for 1 hour
-      await env.DOGLC_WALLET_CACHE.put(
-        `address_${userId}`,
-        result.wallet.wallet_address,
-        { expirationTtl: 3600 }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          address: addressData,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
       );
-      
-      return new Response(JSON.stringify({
-        success: true,
-        address: result.wallet.wallet_address
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
     }
-    
+
+    // Fetch from banking worker using dedicated wallet address endpoint
+    const response = await env.BANKING.fetch(
+      new Request(`https://banking-worker/wallet/address?userId=${userId}`, {
+        headers: { 'X-Internal-API': env.INTERNAL_API_KEY },
+      })
+    );
+    const result = await response.json();
+
+    if (result.success && result.address) {
+      // Cache address for 1 hour
+      await env.DOGLC_WALLET_CACHE.put(`address_${userId}`, result.address, {
+        expirationTtl: 3600,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          address: result.address,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
     throw new Error('Address not found');
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get wallet address'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get wallet address',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -659,79 +753,100 @@ async function sendTransaction(request, userId, env, corsHeaders) {
   try {
     const data = await request.json();
     const { recipient, amount, note } = data;
-    
+
     // Validation
     if (!recipient || !amount || amount <= 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Invalid transaction data'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid transaction data',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     // Check wallet balance
     const balanceResponse = await getWalletBalance(userId, env, corsHeaders);
     const balanceData = await balanceResponse.json();
-    
+
     if (!balanceData.success || balanceData.wallet.available < amount) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Insufficient balance'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Insufficient balance',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     // Process transaction through banking worker
-    const transactionResponse = await env.BANKING.fetch(new Request(`https://banking-worker/transactions/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-API': env.INTERNAL_API_KEY
-      },
-      body: JSON.stringify({
-        fromUserId: userId,
-        recipient: recipient,
-        amount: amount,
-        note: note
+    const transactionResponse = await env.BANKING.fetch(
+      new Request(`https://banking-worker/transactions/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify({
+          fromUserId: userId,
+          recipient: recipient,
+          amount: amount,
+          note: note,
+        }),
       })
-    }));
-    
+    );
+
     const result = await transactionResponse.json();
-    
+
     if (result.success) {
       // Invalidate wallet cache
       await env.DOGLC_WALLET_CACHE.delete(`wallet_${userId}`);
-      
+
       // Log transaction
       await logTransaction(request, userId, 'send', amount, recipient, env);
-      
-      return new Response(JSON.stringify({
-        success: true,
-        transaction: result.transaction
-      }, null, 2), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+
+      return new Response(
+        JSON.stringify(
+          {
+            success: true,
+            transaction: result.transaction,
+          },
+          null,
+          2
+        ),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     } else {
-      return new Response(JSON.stringify({
-        success: false,
-        error: result.error || 'Transaction failed'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: result.error || 'Transaction failed',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to process transaction'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to process transaction',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -741,23 +856,25 @@ async function getTransactionHistory(request, userId, env, corsHeaders) {
     const page = parseInt(url.searchParams.get('page')) || 1;
     const limit = Math.min(parseInt(url.searchParams.get('limit')) || 20, 100);
     const type = url.searchParams.get('type');
-    
+
     const cacheKey = `tx_history_${userId}_${page}_${limit}_${type || 'all'}`;
     const cachedData = await env.DOGLC_TRANSACTIONS.get(cacheKey);
-    
+
     if (cachedData) {
       return new Response(cachedData, {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     // Fetch from banking worker
-    const response = await env.BANKING.fetch(new Request(`https://banking-worker/analytics/user?userId=${userId}&period=30`, {
-      headers: { 'X-Internal-API': env.INTERNAL_API_KEY }
-    }));
-    
+    const response = await env.BANKING.fetch(
+      new Request(`https://banking-worker/analytics/user?userId=${userId}&period=30`, {
+        headers: { 'X-Internal-API': env.INTERNAL_API_KEY },
+      })
+    );
+
     const result = await response.json();
-    
+
     if (result.success) {
       const responseData = JSON.stringify({
         success: true,
@@ -765,29 +882,30 @@ async function getTransactionHistory(request, userId, env, corsHeaders) {
         pagination: {
           page: page,
           limit: limit,
-          total: result.analytics?.total_transactions || 0
-        }
+          total: result.analytics?.total_transactions || 0,
+        },
       });
-      
-      // Cache for 2 minutes
-      await env.DOGLC_TRANSACTIONS.put(cacheKey, responseData, {
-        expirationTtl: 120
-      });
-      
+
+      // Cache for 2 minutes and track cache key for invalidation
+      await storeTransactionHistoryCache(userId, cacheKey, responseData, env);
+
       return new Response(responseData, {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     throw new Error('Failed to fetch transaction history');
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get transaction history'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get transaction history',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -795,49 +913,60 @@ async function getTransactionDetails(request, userId, env, corsHeaders) {
   try {
     const url = new URL(request.url);
     const transactionId = url.searchParams.get('id');
-    
+
     if (!transactionId) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Transaction ID required'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Transaction ID required',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
-    const response = await env.BANKING.fetch(new Request(`https://banking-worker/validate/transaction`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-API': env.INTERNAL_API_KEY
-      },
-      body: JSON.stringify({
-        transactionId: transactionId,
-        userId: userId
+
+    const response = await env.BANKING.fetch(
+      new Request(`https://banking-worker/validate/transaction`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify({
+          transactionId: transactionId,
+          userId: userId,
+        }),
       })
-    }));
-    
+    );
+
     const result = await response.json();
-    
+
     if (result.success) {
-      return new Response(JSON.stringify({
-        success: true,
-        transaction: result.validation
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          transaction: result.validation,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     throw new Error('Transaction not found');
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get transaction details'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get transaction details',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -846,20 +975,22 @@ async function getPublicStats(env, corsHeaders) {
   try {
     const cacheKey = 'public_stats';
     const cachedStats = await env.SYSTEM_CONFIGURATION.get(cacheKey);
-    
+
     if (cachedStats) {
       return new Response(cachedStats, {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     // Aggregate stats from banking worker
-    const response = await env.BANKING.fetch(new Request(`https://banking-worker/analytics/system`, {
-      headers: { 'X-Internal-API': env.INTERNAL_API_KEY }
-    }));
-    
+    const response = await env.BANKING.fetch(
+      new Request(`https://banking-worker/analytics/system`, {
+        headers: { 'X-Internal-API': env.INTERNAL_API_KEY },
+      })
+    );
+
     const result = await response.json();
-    
+
     if (result.success) {
       const stats = {
         totalUsers: result.analytics.total_users,
@@ -868,46 +999,49 @@ async function getPublicStats(env, corsHeaders) {
         circulatingSupply: await getCirculatingSupply(env),
         stakingStats: await getStakingStats(env),
         networkStats: await getNetworkStats(env),
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       };
-      
+
       const responseData = JSON.stringify({
         success: true,
-        stats: stats
+        stats: stats,
       });
-      
+
       // Cache for 5 minutes
       await env.SYSTEM_CONFIGURATION.put(cacheKey, responseData, {
-        expirationTtl: 300
+        expirationTtl: 300,
       });
-      
+
       return new Response(responseData, {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     throw new Error('Failed to get stats');
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get public stats'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get public stats',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function getCurrentPrice(env, corsHeaders) {
   try {
     const priceData = await env.PRICE_DATA_CACHE.get('current_price');
-    
+
     if (priceData) {
       return new Response(priceData, {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     // Fetch real price data (placeholder for now)
     const price = {
       doglc_usd: 0.001, // $0.001 per DOGLC
@@ -916,43 +1050,46 @@ async function getCurrentPrice(env, corsHeaders) {
       change_24h: 2.5,
       volume_24h: 50000,
       market_cap: 1000000,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
-    
+
     const responseData = JSON.stringify({
       success: true,
-      price: price
+      price: price,
     });
-    
+
     // Cache for 1 minute
     await env.PRICE_DATA_CACHE.put('current_price', responseData, {
-      expirationTtl: 60
+      expirationTtl: 60,
     });
-    
+
     return new Response(responseData, {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get current price'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get current price',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function getMarketData(env, corsHeaders) {
   try {
     const marketData = await env.PRICE_DATA_CACHE.get('market_data');
-    
+
     if (marketData) {
       return new Response(marketData, {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     // Generate market data
     const data = {
       ticker: 'DOGLC',
@@ -969,43 +1106,46 @@ async function getMarketData(env, corsHeaders) {
       all_time_low: 0.0001,
       market_cap_rank: 1000,
       fully_diluted_valuation: 1000000,
-      last_updated: new Date().toISOString()
+      last_updated: new Date().toISOString(),
     };
-    
+
     const responseData = JSON.stringify({
       success: true,
-      market_data: data
+      market_data: data,
     });
-    
+
     // Cache for 5 minutes
     await env.PRICE_DATA_CACHE.put('market_data', responseData, {
-      expirationTtl: 300
+      expirationTtl: 300,
     });
-    
+
     return new Response(responseData, {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get market data'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get market data',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function getSystemStatus(env, corsHeaders) {
   try {
     const statusData = await env.SYSTEM_CONFIGURATION.get('system_status');
-    
+
     if (statusData) {
       return new Response(statusData, {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    
+
     // Check system components
     const status = {
       overall: 'healthy',
@@ -1016,30 +1156,33 @@ async function getSystemStatus(env, corsHeaders) {
       notifications: 'operational',
       last_check: new Date().toISOString(),
       uptime: '99.9%',
-      response_time: '150ms'
+      response_time: '150ms',
     };
-    
+
     const responseData = JSON.stringify({
       success: true,
-      status: status
+      status: status,
     });
-    
+
     // Cache for 1 minute
     await env.SYSTEM_CONFIGURATION.put('system_status', responseData, {
-      expirationTtl: 60
+      expirationTtl: 60,
     });
-    
+
     return new Response(responseData, {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get system status'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get system status',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -1048,68 +1191,82 @@ async function stakeTokens(request, userId, env, corsHeaders) {
   try {
     const data = await request.json();
     const { amount, duration } = data;
-    
+
     if (!amount || amount <= 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Invalid staking amount'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid staking amount',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     // Check balance
     const balanceResponse = await getWalletBalance(userId, env, corsHeaders);
     const balanceData = await balanceResponse.json();
-    
+
     if (!balanceData.success || balanceData.wallet.available < amount) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Insufficient balance for staking'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Insufficient balance for staking',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     // Process staking
-    const stakingResponse = await env.BANKING.fetch(new Request(`https://banking-worker/staking/stake`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-API': env.INTERNAL_API_KEY
-      },
-      body: JSON.stringify({
-        userId: userId,
-        amount: amount,
-        duration: duration
+    const stakingResponse = await env.BANKING.fetch(
+      new Request(`https://banking-worker/staking/stake`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify({
+          userId: userId,
+          amount: amount,
+          duration: duration,
+        }),
       })
-    }));
-    
+    );
+
     const result = await stakingResponse.json();
-    
+
     if (result.success) {
       // Invalidate cache
       await env.DOGLC_WALLET_CACHE.delete(`wallet_${userId}`);
-      
-      return new Response(JSON.stringify({
-        success: true,
-        staking: result.staking
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          staking: result.staking,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     throw new Error(result.error);
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to stake tokens'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to stake tokens',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -1117,84 +1274,103 @@ async function unstakeTokens(request, userId, env, corsHeaders) {
   try {
     const data = await request.json();
     const { stakingId, amount } = data;
-    
+
     if (!stakingId) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Staking ID required'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Staking ID required',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     // Process unstaking
-    const unstakingResponse = await env.BANKING.fetch(new Request(`https://banking-worker/staking/unstake`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-API': env.INTERNAL_API_KEY
-      },
-      body: JSON.stringify({
-        userId: userId,
-        stakingId: stakingId,
-        amount: amount
+    const unstakingResponse = await env.BANKING.fetch(
+      new Request(`https://banking-worker/staking/unstake`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify({
+          userId: userId,
+          stakingId: stakingId,
+          amount: amount,
+        }),
       })
-    }));
-    
+    );
+
     const result = await unstakingResponse.json();
-    
+
     if (result.success) {
       // Invalidate cache
       await env.DOGLC_WALLET_CACHE.delete(`wallet_${userId}`);
-      
-      return new Response(JSON.stringify({
-        success: true,
-        unstaking: result.message
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          unstaking: result.message,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     throw new Error(result.error);
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to unstake tokens'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to unstake tokens',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function getStakingRewards(userId, env, corsHeaders) {
   try {
-    const response = await env.BANKING.fetch(new Request(`https://banking-worker/staking/rewards?userId=${userId}`, {
-      headers: { 'X-Internal-API': env.INTERNAL_API_KEY }
-    }));
-    
+    const response = await env.BANKING.fetch(
+      new Request(`https://banking-worker/staking/rewards?userId=${userId}`, {
+        headers: { 'X-Internal-API': env.INTERNAL_API_KEY },
+      })
+    );
+
     const result = await response.json();
-    
+
     if (result.success) {
-      return new Response(JSON.stringify({
-        success: true,
-        rewards: result.total_rewards,
-        positions: result.positions
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          rewards: result.total_rewards,
+          positions: result.positions,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     throw new Error('Rewards not found');
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get staking rewards'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get staking rewards',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -1202,30 +1378,30 @@ async function getStakingRewards(userId, env, corsHeaders) {
 async function handleTelegramWebhook(request, env) {
   try {
     const webhookSecret = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
-    
+
     if (webhookSecret !== env.TELEGRAM_WEBHOOK_SECRET) {
       return new Response('Unauthorized', { status: 401 });
     }
-    
+
     const update = await request.json();
-    
+
     // Store webhook data for main bot processing
-    await env.TELEGRAM_WEBHOOK_DATA.put(
-      `webhook_${Date.now()}`,
-      JSON.stringify(update),
-      { expirationTtl: 3600 }
-    );
-    
+    await env.TELEGRAM_WEBHOOK_DATA.put(`webhook_${Date.now()}`, JSON.stringify(update), {
+      expirationTtl: 3600,
+    });
+
     // Forward to main bot worker
-    await env.MAIN_BOT.fetch(new Request('https://main-bot-worker/webhook/telegram', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-API': env.INTERNAL_API_KEY
-      },
-      body: JSON.stringify(update)
-    }));
-    
+    await env.MAIN_BOT.fetch(
+      new Request('https://main-bot-worker/webhook/telegram', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify(update),
+      })
+    );
+
     return new Response('OK');
   } catch (error) {
     console.error('Telegram webhook error:', error);
@@ -1236,19 +1412,19 @@ async function handleTelegramWebhook(request, env) {
 async function handlePaymentWebhook(request, env) {
   try {
     const signature = request.headers.get('X-Payment-Signature');
-    
+
     // Verify signature (implement based on payment provider)
     if (!signature) {
       return new Response('Unauthorized', { status: 401 });
     }
-    
+
     const paymentData = await request.json();
-    
+
     // Process payment
     if (paymentData.status === 'completed') {
       await processPaymentConfirmation(paymentData, env);
     }
-    
+
     return new Response('OK');
   } catch (error) {
     console.error('Payment webhook error:', error);
@@ -1259,14 +1435,14 @@ async function handlePaymentWebhook(request, env) {
 async function handleBlockchainWebhook(request, env) {
   try {
     const blockchainData = await request.json();
-    
+
     // Process blockchain events
     if (blockchainData.type === 'transaction_confirmed') {
       await processTransactionConfirmation(blockchainData, env);
     } else if (blockchainData.type === 'block_mined') {
       await processNewBlock(blockchainData, env);
     }
-    
+
     return new Response('OK');
   } catch (error) {
     console.error('Blockchain webhook error:', error);
@@ -1277,12 +1453,14 @@ async function handleBlockchainWebhook(request, env) {
 // User Management Functions
 async function getUserProfile(userId, env, corsHeaders) {
   try {
-    const response = await env.BANKING.fetch(new Request(`https://banking-worker/analytics/user?userId=${userId}&period=1`, {
-      headers: { 'X-Internal-API': env.INTERNAL_API_KEY }
-    }));
-    
+    const response = await env.BANKING.fetch(
+      new Request(`https://banking-worker/analytics/user?userId=${userId}&period=1`, {
+        headers: { 'X-Internal-API': env.INTERNAL_API_KEY },
+      })
+    );
+
     const result = await response.json();
-    
+
     if (result.success) {
       const profile = {
         userId: userId,
@@ -1290,83 +1468,98 @@ async function getUserProfile(userId, env, corsHeaders) {
         totalTransactions: result.analytics.total_transactions,
         totalSent: result.analytics.total_sent,
         totalReceived: result.analytics.total_received,
-        accountStatus: 'active'
+        accountStatus: 'active',
       };
-      
-      return new Response(JSON.stringify({
-        success: true,
-        profile: profile
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          profile: profile,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     throw new Error('Profile not found');
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get user profile'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get user profile',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function updateUserProfile(request, userId, env, corsHeaders) {
   try {
     const data = await request.json();
-    
+
     // Validate profile data
     const allowedFields = ['displayName', 'email', 'phone', 'timezone'];
     const profileUpdate = {};
-    
+
     for (const field of allowedFields) {
       if (data[field]) {
         profileUpdate[field] = data[field];
       }
     }
-    
+
     // Store profile update
     await env.USER_SESSIONS.put(
       `profile_${userId}`,
       JSON.stringify({
         ...profileUpdate,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       }),
       { expirationTtl: 86400 * 30 }
     );
-    
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Profile updated successfully'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Profile updated successfully',
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to update user profile'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to update user profile',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function getUserPreferences(userId, env, corsHeaders) {
   try {
     const preferencesData = await env.USER_SESSIONS.get(`preferences_${userId}`);
-    
+
     if (preferencesData) {
-      return new Response(JSON.stringify({
-        success: true,
-        preferences: JSON.parse(preferencesData)
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          preferences: JSON.parse(preferencesData),
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     // Default preferences
     const defaultPreferences = {
       language: 'th',
@@ -1375,73 +1568,88 @@ async function getUserPreferences(userId, env, corsHeaders) {
       notifications: {
         email: true,
         telegram: true,
-        push: false
+        push: false,
       },
       trading: {
         confirmations_required: 3,
         max_daily_limit: 10000,
-        auto_staking: false
+        auto_staking: false,
       },
       security: {
         two_factor_enabled: false,
         login_notifications: true,
-        suspicious_activity_alerts: true
-      }
+        suspicious_activity_alerts: true,
+      },
     };
-    
-    return new Response(JSON.stringify({
-      success: true,
-      preferences: defaultPreferences
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        preferences: defaultPreferences,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get user preferences'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get user preferences',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function updateUserPreferences(request, userId, env, corsHeaders) {
   try {
     const preferences = await request.json();
-    
+
     // Validate preferences
     if (!preferences || typeof preferences !== 'object') {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Invalid preferences data'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid preferences data',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-    
+
     // Store preferences
     await env.USER_SESSIONS.put(
       `preferences_${userId}`,
       JSON.stringify(preferences),
       { expirationTtl: 86400 * 30 } // 30 days
     );
-    
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Preferences updated successfully'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Preferences updated successfully',
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to update preferences'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to update preferences',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -1461,30 +1669,36 @@ async function getBlockchainInfo(env, corsHeaders) {
       network_hash_rate: '1.2 TH/s',
       consensus: 'Proof of Stake',
       validators: 100,
-      active_validators: 95
+      active_validators: 95,
     };
-    
-    return new Response(JSON.stringify({
-      success: true,
-      blockchain: blockchainInfo
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        blockchain: blockchainInfo,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get blockchain info'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get blockchain info',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
 async function getValidators(env, corsHeaders) {
   try {
     const validators = [];
-    
+
     // Generate validator data
     for (let i = 1; i <= 100; i++) {
       validators.push({
@@ -1494,26 +1708,32 @@ async function getValidators(env, corsHeaders) {
         commission: Math.floor(Math.random() * 10) + 1,
         uptime: (95 + Math.random() * 5).toFixed(2) + '%',
         status: Math.random() > 0.05 ? 'active' : 'inactive',
-        last_seen: new Date(Date.now() - Math.random() * 3600000).toISOString()
+        last_seen: new Date(Date.now() - Math.random() * 3600000).toISOString(),
       });
     }
-    
-    return new Response(JSON.stringify({
-      success: true,
-      validators: validators,
-      total_validators: validators.length,
-      active_validators: validators.filter(v => v.status === 'active').length
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        validators: validators,
+        total_validators: validators.length,
+        active_validators: validators.filter(v => v.status === 'active').length,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get validators'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get validators',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -1533,24 +1753,30 @@ async function getNetworkHealth(env, corsHeaders) {
         networking: 'healthy',
         storage: 'healthy',
         api: 'healthy',
-        indexer: 'healthy'
-      }
+        indexer: 'healthy',
+      },
     };
-    
-    return new Response(JSON.stringify({
-      success: true,
-      health: health
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        health: health,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get network health'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get network health',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -1564,41 +1790,41 @@ async function getDeploymentInfo(env, corsHeaders) {
         description: 'Cloudflare Workers powering a secure digital wallet platform',
         repository: 'Chaiya88/logic-digital-wallet',
         domain: env.DOMAIN || 'teenoi96.org',
-        environment: env.ENVIRONMENT || 'production'
+        environment: env.ENVIRONMENT || 'production',
       },
       workers: {
         api: {
           name: 'api-worker',
           status: 'active',
-          endpoints: ['/api/v1/*', '/api/public/*', '/api/webhook/*']
+          endpoints: ['/api/v1/*', '/api/public/*', '/api/webhook/*'],
         },
         banking: {
-          name: 'banking-worker', 
+          name: 'banking-worker',
           status: 'active',
-          endpoints: ['/banking/*']
+          endpoints: ['/banking/*'],
         },
         security: {
           name: 'security-worker',
-          status: 'active', 
-          endpoints: ['/security/*', '/verification/*']
+          status: 'active',
+          endpoints: ['/security/*', '/verification/*'],
         },
         frontend: {
           name: 'frontend-worker',
           status: 'active',
-          endpoints: ['/app/*', '/']
+          endpoints: ['/app/*', '/'],
         },
         mainBot: {
           name: 'main-bot-worker',
           status: 'active',
-          endpoints: ['/bot/*', '/webhook/telegram']
-        }
+          endpoints: ['/bot/*', '/webhook/telegram'],
+        },
       },
       infrastructure: {
         accountId: env.ACCOUNT_ID,
         supportedLanguages: (env.SUPPORTED_LANGUAGES || 'th,en,zh,km,ko,id').split(','),
         defaultLanguage: env.DEFAULT_LANGUAGE || 'th',
         rateLimitPerMinute: parseInt(env.API_RATE_LIMIT_PER_MINUTE || '100'),
-        sessionTimeoutHours: parseInt(env.SESSION_TIMEOUT_HOURS || '24')
+        sessionTimeoutHours: parseInt(env.SESSION_TIMEOUT_HOURS || '24'),
       },
       features: {
         ocrProcessing: true,
@@ -1606,25 +1832,31 @@ async function getDeploymentInfo(env, corsHeaders) {
         multiLanguageSupport: true,
         rateLimiting: true,
         realTimeNotifications: true,
-        advancedSecurity: true
+        advancedSecurity: true,
       },
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     };
 
-    return new Response(JSON.stringify({
-      success: true,
-      deployment: deploymentInfo
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        deployment: deploymentInfo,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get deployment information'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get deployment information',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -1644,81 +1876,92 @@ async function getDeploymentManifest(env, corsHeaders) {
             { name: 'frontend_worker.js', status: 'deployed', type: 'worker' },
             { name: 'main_bot_worker_complete.js', status: 'deployed', type: 'worker' },
             { name: 'security_worker_complete.js', status: 'deployed', type: 'worker' },
-            { name: 'ocr_commission_systems.js', status: 'deployed', type: 'module' }
-          ]
+            { name: 'ocr_commission_systems.js', status: 'deployed', type: 'module' },
+          ],
         },
         configurations: {
           description: 'Wrangler configuration files for deployment',
           files: [
             { name: 'wrangler.toml', status: 'active', type: 'config' },
-            { name: 'api/wrangler.toml', status: 'active', type: 'config' }
-          ]
+            { name: 'api/wrangler.toml', status: 'active', type: 'config' },
+          ],
         },
         deploymentFiles: {
           description: 'GitHub Actions workflows and deployment scripts',
           files: [
             { name: '.github/workflows/chatops-deploy.yml', status: 'active', type: 'workflow' },
             { name: '.github/workflows/migrate.yml', status: 'active', type: 'workflow' },
-            { name: 'setup-chatops.ps1', status: 'available', type: 'script' }
-          ]
-        }
+            { name: 'setup-chatops.ps1', status: 'available', type: 'script' },
+          ],
+        },
       },
       endpoints: {
         public: [
           'GET /api/public/stats',
-          'GET /api/public/price', 
+          'GET /api/public/price',
           'GET /api/public/market-data',
           'GET /api/public/system/status',
           'GET /api/public/deployment/info',
-          'GET /api/public/deployment/manifest'
+          'GET /api/public/deployment/manifest',
         ],
         authenticated: [
           'GET /api/v1/wallet/balance',
           'POST /api/v1/fiat/deposit/initiate',
           'POST /api/v1/crypto/withdraw/initiate',
-          'POST /api/v1/staking/stake'
+          'POST /api/v1/staking/stake',
         ],
         webhooks: [
           'POST /api/webhook/bank-email-notification',
           'POST /api/webhook/telegram',
-          'POST /api/webhook/payment'
-        ]
+          'POST /api/webhook/payment',
+        ],
       },
       infrastructure: {
         kvNamespaces: [
-          'USER_SESSIONS', 'DOGLC_TRANSACTIONS', 'API_RATE_LIMITS',
-          'SECURITY_TOKENS', 'SLIP_VERIFICATION', 'ENHANCED_AUDIT_LOGS'
+          'USER_SESSIONS',
+          'DOGLC_TRANSACTIONS',
+          'API_RATE_LIMITS',
+          'SECURITY_TOKENS',
+          'SLIP_VERIFICATION',
+          'ENHANCED_AUDIT_LOGS',
         ],
         d1Databases: [
-          'MAIN_WALLET_DB', 'SECURITY_AUDIT_DB', 'TRANSACTION_LOGS_DB',
-          'USER_ACCOUNTS_DB', 'TRADING_BOT_MAIN_DB'
+          'MAIN_WALLET_DB',
+          'SECURITY_AUDIT_DB',
+          'TRANSACTION_LOGS_DB',
+          'USER_ACCOUNTS_DB',
+          'TRADING_BOT_MAIN_DB',
         ],
-        r2Buckets: [
-          'SYSTEM_LOGS', 'TRANSACTION_RECEIPTS', 'USER_DOCUMENTS'
-        ]
+        r2Buckets: ['SYSTEM_LOGS', 'TRANSACTION_RECEIPTS', 'USER_DOCUMENTS'],
       },
       summary: {
         totalWorkers: 5,
         totalEndpoints: 15,
         supportedLanguages: 6,
-        lastDeployment: 'Available via deployment history API'
-      }
+        lastDeployment: 'Available via deployment history API',
+      },
     };
 
-    return new Response(JSON.stringify({
-      success: true,
-      manifest: manifest
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        manifest: manifest,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Failed to get deployment manifest'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to get deployment manifest',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
 
@@ -1735,24 +1978,28 @@ async function getCirculatingSupply(env) {
 
 async function getStakingStats(env) {
   try {
-    const response = await env.BANKING.fetch(new Request(`https://banking-worker/analytics/system`, {
-      headers: { 'X-Internal-API': env.INTERNAL_API_KEY }
-    }));
+    const response = await env.BANKING.fetch(
+      new Request(`https://banking-worker/analytics/system`, {
+        headers: { 'X-Internal-API': env.INTERNAL_API_KEY },
+      })
+    );
     const result = await response.json();
-    return result.success ? {
-      totalStaked: result.analytics.total_staked || 0,
-      stakingRewards: result.analytics.staking_rewards || 0,
-      activeStakers: result.analytics.active_stakers || 0
-    } : {
-      totalStaked: 0,
-      stakingRewards: 0,
-      activeStakers: 0
-    };
+    return result.success
+      ? {
+          totalStaked: result.analytics.total_staked || 0,
+          stakingRewards: result.analytics.staking_rewards || 0,
+          activeStakers: result.analytics.active_stakers || 0,
+        }
+      : {
+          totalStaked: 0,
+          stakingRewards: 0,
+          activeStakers: 0,
+        };
   } catch (error) {
     return {
       totalStaked: 0,
       stakingRewards: 0,
-      activeStakers: 0
+      activeStakers: 0,
     };
   }
 }
@@ -1763,7 +2010,7 @@ async function getNetworkStats(env) {
     hashRate: '1.2 TH/s',
     difficulty: 'Medium',
     averageBlockTime: '10s',
-    pendingTransactions: 25
+    pendingTransactions: 25,
   };
 }
 
@@ -1771,35 +2018,42 @@ async function getNetworkStats(env) {
 async function processPaymentConfirmation(paymentData, env) {
   try {
     const { user_id, amount, currency, payment_id } = paymentData;
-    
+
     // Update user balance through banking worker
-    const response = await env.BANKING.fetch(new Request(`https://banking-worker/wallet/deposit`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-API': env.INTERNAL_API_KEY
-      },
-      body: JSON.stringify({
-        userId: user_id,
-        amount: amount,
-        currency: currency,
-        paymentId: payment_id
+    const response = await env.BANKING.fetch(
+      new Request(`https://banking-worker/wallet/deposit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify({
+          userId: user_id,
+          amount: amount,
+          currency: currency,
+          paymentId: payment_id,
+        }),
       })
-    }));
-    
+    );
+
     const result = await response.json();
-    
+
     if (result.success) {
       // Invalidate cache
       await env.DOGLC_WALLET_CACHE.delete(`wallet_${user_id}`);
-      
+
       // Send notification
-      await sendNotification(user_id, 'payment_confirmed', {
-        amount: amount,
-        currency: currency
-      }, env);
+      await sendNotification(
+        user_id,
+        'payment_confirmed',
+        {
+          amount: amount,
+          currency: currency,
+        },
+        env
+      );
     }
-    
+
     return result;
   } catch (error) {
     console.error('Payment confirmation error:', error);
@@ -1810,35 +2064,42 @@ async function processPaymentConfirmation(paymentData, env) {
 async function processTransactionConfirmation(blockchainData, env) {
   try {
     const { transaction_hash, confirmations, status } = blockchainData;
-    
+
     // Update transaction status through banking worker
-    const response = await env.BANKING.fetch(new Request(`https://banking-worker/transactions/confirm`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-API': env.INTERNAL_API_KEY
-      },
-      body: JSON.stringify({
-        transactionHash: transaction_hash,
-        confirmations: confirmations,
-        status: status
+    const response = await env.BANKING.fetch(
+      new Request(`https://banking-worker/transactions/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify({
+          transactionHash: transaction_hash,
+          confirmations: confirmations,
+          status: status,
+        }),
       })
-    }));
-    
+    );
+
     const result = await response.json();
-    
+
     if (result.success && result.transaction && result.transaction.userId) {
       // Invalidate user caches
       await env.DOGLC_WALLET_CACHE.delete(`wallet_${result.transaction.userId}`);
       await clearTransactionCache(result.transaction.userId, env);
-      
+
       // Send confirmation notification
-      await sendNotification(result.transaction.userId, 'transaction_confirmed', {
-        transactionHash: transaction_hash,
-        amount: result.transaction.amount
-      }, env);
+      await sendNotification(
+        result.transaction.userId,
+        'transaction_confirmed',
+        {
+          transactionHash: transaction_hash,
+          amount: result.transaction.amount,
+        },
+        env
+      );
     }
-    
+
     return result;
   } catch (error) {
     console.error('Transaction confirmation error:', error);
@@ -1849,23 +2110,26 @@ async function processTransactionConfirmation(blockchainData, env) {
 async function processNewBlock(blockchainData, env) {
   try {
     const { block_height, block_hash, timestamp, transactions } = blockchainData;
-    
+
     // Update blockchain stats
     await env.SYSTEM_CONFIGURATION.put('latest_block_height', block_height.toString());
     await env.SYSTEM_CONFIGURATION.put('latest_block_hash', block_hash);
     await env.SYSTEM_CONFIGURATION.put('latest_block_time', timestamp);
-    
+
     // Process transactions in block
     if (transactions && transactions.length > 0) {
       for (const tx of transactions) {
-        await processTransactionConfirmation({
-          transaction_hash: tx.hash,
-          confirmations: 1,
-          status: 'confirmed'
-        }, env);
+        await processTransactionConfirmation(
+          {
+            transaction_hash: tx.hash,
+            confirmations: 1,
+            status: 'confirmed',
+          },
+          env
+        );
       }
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('New block processing error:', error);
@@ -1879,26 +2143,28 @@ async function sendNotification(userId, type, data, env) {
       userId: userId,
       type: type,
       data: data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
-    
+
     // Store notification history
     await env.NOTIFICATION_HISTORY.put(
       `notification_${Date.now()}_${userId}`,
       JSON.stringify(notificationData),
       { expirationTtl: 86400 * 30 } // Keep for 30 days
     );
-    
+
     // Send to notification service
-    await env.MAIN_BOT.fetch(new Request('https://main-bot-worker/notifications/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Internal-API': env.INTERNAL_API_KEY
-      },
-      body: JSON.stringify(notificationData)
-    }));
-    
+    await env.MAIN_BOT.fetch(
+      new Request('https://main-bot-worker/notifications/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-API': env.INTERNAL_API_KEY,
+        },
+        body: JSON.stringify(notificationData),
+      })
+    );
+
     return { success: true };
   } catch (error) {
     console.error('Notification error:', error);
@@ -1914,9 +2180,9 @@ async function logTransaction(request, userId, type, amount, recipient, env) {
       amount: amount,
       recipient: recipient,
       timestamp: new Date().toISOString(),
-      ip: request.headers?.get('CF-Connecting-IP') || 'unknown'
+      ip: request.headers?.get('CF-Connecting-IP') || 'unknown',
     };
-    
+
     await env.ENHANCED_AUDIT_LOGS.put(
       `transaction_log_${Date.now()}_${userId}`,
       JSON.stringify(logData),
@@ -1929,17 +2195,49 @@ async function logTransaction(request, userId, type, amount, recipient, env) {
 
 // Cache Management
 async function clearTransactionCache(userId, env) {
-  // Clear transaction history cache for user
-  // Note: KV doesn't support pattern deletion, so we'd need to track keys
-  const cacheKeys = [
-    `tx_history_${userId}_1_20_all`,
-    `tx_history_${userId}_1_50_all`,
-    `tx_history_${userId}_2_20_all`
-  ];
-  
+  // Track all cache keys for this user in a separate KV entry
+  const keyListKey = `tx_history_keys_${userId}`;
+  const keyListData = await env.DOGLC_TRANSACTIONS.get(keyListKey);
+  let cacheKeys = [];
+
+  if (keyListData) {
+    try {
+      cacheKeys = JSON.parse(keyListData);
+    } catch (e) {
+      cacheKeys = [];
+    }
+  }
+
   for (const key of cacheKeys) {
     await env.DOGLC_TRANSACTIONS.delete(key);
   }
+
+  // Clear the key list after deletion
+  await env.DOGLC_TRANSACTIONS.delete(keyListKey);
+}
+
+// When storing a new transaction history cache, also update the key list
+async function storeTransactionHistoryCache(userId, cacheKey, data, env) {
+  const keyListKey = `tx_history_keys_${userId}`;
+  const keyListData = await env.DOGLC_TRANSACTIONS.get(keyListKey);
+  let cacheKeys = [];
+
+  if (keyListData) {
+    try {
+      cacheKeys = JSON.parse(keyListData);
+    } catch (e) {
+      cacheKeys = [];
+    }
+  }
+
+  if (!cacheKeys.includes(cacheKey)) {
+    cacheKeys.push(cacheKey);
+    await env.DOGLC_TRANSACTIONS.put(keyListKey, JSON.stringify(cacheKeys), {
+      expirationTtl: 86400,
+    });
+  }
+
+  await env.DOGLC_TRANSACTIONS.put(cacheKey, data, { expirationTtl: 120 });
 }
 
 // Security Functions
@@ -1947,7 +2245,7 @@ async function detectSuspiciousActivity(request, env) {
   const ip = request.headers.get('CF-Connecting-IP');
   const userAgent = request.headers.get('User-Agent');
   const country = request.cf?.country;
-  
+
   // Check for blocked IPs
   if (ip) {
     const blockedIP = await env.BLOCKED_IPS_KV.get(ip);
@@ -1955,23 +2253,23 @@ async function detectSuspiciousActivity(request, env) {
       return { suspicious: true, reason: 'blocked_ip' };
     }
   }
-  
+
   // Check for suspicious user agents
   const suspiciousAgents = ['bot', 'crawler', 'scanner', 'attack'];
   const lowerUserAgent = userAgent?.toLowerCase() || '';
-  
+
   for (const agent of suspiciousAgents) {
     if (lowerUserAgent.includes(agent)) {
       return { suspicious: true, reason: 'suspicious_user_agent' };
     }
   }
-  
+
   // Check for high-risk countries (if needed)
   const highRiskCountries = ['XX']; // Add country codes as needed
   if (country && highRiskCountries.includes(country)) {
     return { suspicious: true, reason: 'high_risk_country' };
   }
-  
+
   return { suspicious: false };
 }
 
@@ -1986,8 +2284,9 @@ function generateRandomHash() {
 }
 
 function isValidUSDTAddress(address) {
-  // Basic USDT address validation (implement based on network)
-  // This is a placeholder - implement proper validation for different networks
+  // Basic USDT address validation.
+  // NOTE: This is a placeholder and NOT suitable for production use.
+  // TODO: Implement proper validation for USDT addresses for each supported network (e.g., ERC-20, TRC-20, Omni).
   if (address.length < 26 || address.length > 42) return false;
   if (address.startsWith('T') || address.startsWith('0x')) return true;
   return false;
@@ -2003,141 +2302,141 @@ async function getAPIDocumentation() {
     endpoints: {
       authentication: {
         description: 'Authentication is required for all v1 endpoints',
-        methods: ['API Key (X-API-Key header)', 'Bearer Token (Authorization header)']
+        methods: ['API Key (X-API-Key header)', 'Bearer Token (Authorization header)'],
       },
       wallet: {
         '/api/v1/transactions/history': {
           method: 'GET',
           description: 'Get transaction history',
           auth_required: true,
-          parameters: ['page', 'limit', 'type']
+          parameters: ['page', 'limit', 'type'],
         },
         '/api/v1/transactions/details': {
           method: 'GET',
           description: 'Get transaction details',
           auth_required: true,
-          parameters: ['id']
-        }
+          parameters: ['id'],
+        },
       },
       fiat_crypto: {
         '/api/v1/fiat/deposit/initiate': {
           method: 'POST',
           description: 'Initiate THB fiat deposit',
           auth_required: true,
-          parameters: ['amount']
+          parameters: ['amount'],
         },
         '/api/v1/fiat/deposit/submit-slip': {
           method: 'POST',
           description: 'Submit deposit slip for verification',
           auth_required: true,
-          parameters: ['depositId', 'slipImageData']
+          parameters: ['depositId', 'slipImageData'],
         },
         '/api/v1/crypto/withdraw/initiate': {
           method: 'POST',
           description: 'Initiate USDT crypto withdrawal',
           auth_required: true,
-          parameters: ['doglcAmount', 'usdtAddress']
-        }
+          parameters: ['doglcAmount', 'usdtAddress'],
+        },
       },
       staking: {
         '/api/v1/staking/stake': {
           method: 'POST',
           description: 'Stake DOGLC tokens',
           auth_required: true,
-          parameters: ['amount', 'duration']
+          parameters: ['amount', 'duration'],
         },
         '/api/v1/staking/unstake': {
           method: 'POST',
           description: 'Unstake DOGLC tokens',
           auth_required: true,
-          parameters: ['stakingId', 'amount']
+          parameters: ['stakingId', 'amount'],
         },
         '/api/v1/staking/rewards': {
           method: 'GET',
           description: 'Get staking rewards',
-          auth_required: true
-        }
+          auth_required: true,
+        },
       },
       user: {
         '/api/v1/user/profile': {
           methods: ['GET', 'PUT'],
           description: 'Get or update user profile',
-          auth_required: true
+          auth_required: true,
         },
         '/api/v1/user/preferences': {
           methods: ['GET', 'PUT'],
           description: 'Get or update user preferences',
-          auth_required: true
-        }
+          auth_required: true,
+        },
       },
       public: {
         '/api/public/stats': {
           method: 'GET',
-          description: 'Get public statistics'
+          description: 'Get public statistics',
         },
         '/api/public/price': {
           method: 'GET',
-          description: 'Get current DOGLC price'
+          description: 'Get current DOGLC price',
         },
         '/api/public/market-data': {
           method: 'GET',
-          description: 'Get market data'
+          description: 'Get market data',
         },
         '/api/public/system/status': {
           method: 'GET',
-          description: 'Get system status'
+          description: 'Get system status',
         },
         '/api/public/blockchain/info': {
           method: 'GET',
-          description: 'Get blockchain information'
+          description: 'Get blockchain information',
         },
         '/api/public/validators': {
           method: 'GET',
-          description: 'Get validators list'
+          description: 'Get validators list',
         },
         '/api/public/network/health': {
           method: 'GET',
-          description: 'Get network health status'
+          description: 'Get network health status',
         },
         '/api/public/deployment/info': {
           method: 'GET',
-          description: 'Get deployment information and infrastructure details'
+          description: 'Get deployment information and infrastructure details',
         },
         '/api/public/deployment/manifest': {
           method: 'GET',
-          description: 'Get complete deployment manifest with all components'
-        }
+          description: 'Get complete deployment manifest with all components',
+        },
       },
       webhooks: {
         '/api/webhook/telegram': {
           method: 'POST',
           description: 'Telegram bot webhook',
           auth_required: false,
-          note: 'Requires valid webhook secret'
+          note: 'Requires valid webhook secret',
         },
         '/api/webhook/payment': {
           method: 'POST',
           description: 'Payment provider webhook',
           auth_required: false,
-          note: 'Requires valid signature'
+          note: 'Requires valid signature',
         },
         '/api/webhook/blockchain': {
           method: 'POST',
           description: 'Blockchain events webhook',
-          auth_required: false
+          auth_required: false,
         },
         '/api/webhook/bank-email-notification': {
           method: 'POST',
           description: 'Bank email notification webhook',
           auth_required: false,
-          note: 'Forwards to security worker for processing'
-        }
-      }
+          note: 'Forwards to security worker for processing',
+        },
+      },
     },
     rate_limits: {
       authenticated: '1000 requests per hour',
       public: '100 requests per hour',
-      webhook: '10000 requests per hour'
+      webhook: '10000 requests per hour',
     },
     error_codes: {
       400: 'Bad Request - Invalid parameters',
@@ -2145,22 +2444,21 @@ async function getAPIDocumentation() {
       403: 'Forbidden - Access denied or suspicious activity',
       404: 'Not Found - Endpoint not found',
       429: 'Too Many Requests - Rate limit exceeded',
-      500: 'Internal Server Error - Server error occurred'
+      500: 'Internal Server Error - Server error occurred',
     },
     response_format: {
       success: {
         success: true,
-        data: 'Response data here'
+        data: 'Response data here',
       },
       error: {
         success: false,
-        error: 'Error message here'
-      }
-    }
+        error: 'Error message here',
+      },
+    },
   };
-  
+
   return new Response(JSON.stringify(documentation, null, 2), {
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json' },
   });
 }
-

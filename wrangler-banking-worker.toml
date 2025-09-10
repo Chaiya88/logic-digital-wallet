@@ -1,0 +1,42 @@
+name = "logic-banking-worker"
+main = "workers/banking/index.js"
+compatibility_date = "2024-01-01"
+
+[env.production]
+name = "logic-banking-worker"
+
+[[env.production.kv_namespaces]]
+binding = "DOGLC_WALLET_CACHE"
+id = "YOUR_KV_NAMESPACE_ID"
+preview_id = "YOUR_PREVIEW_KV_NAMESPACE_ID"
+
+[[env.production.kv_namespaces]]
+binding = "SYSTEM_CONFIGURATION"
+id = "YOUR_CONFIG_KV_NAMESPACE_ID"
+preview_id = "YOUR_PREVIEW_CONFIG_KV_NAMESPACE_ID"
+
+[[env.production.kv_namespaces]]
+binding = "TRANSACTION_CACHE"
+id = "YOUR_TRANSACTION_KV_NAMESPACE_ID"
+preview_id = "YOUR_PREVIEW_TRANSACTION_KV_NAMESPACE_ID"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+BOT_TOKEN = "YOUR_BOT_TOKEN"
+INTERNAL_API_KEY = "YOUR_INTERNAL_API_KEY"
+COINBASE_API_KEY = "YOUR_COINBASE_API_KEY"
+COINBASE_SECRET = "YOUR_COINBASE_SECRET"
+TRON_API_KEY = "YOUR_TRON_API_KEY"
+ADMIN_USER_ID = "YOUR_ADMIN_USER_ID"
+
+[[env.production.services]]
+binding = "API"
+service = "logic-api-worker"
+
+[[env.production.services]]
+binding = "SECURITY"
+service = "logic-security-worker"
+
+[[env.production.services]]
+binding = "FRONTEND"
+service = "logic-frontend-worker"

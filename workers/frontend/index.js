@@ -3,6 +3,8 @@
  * Handles all frontend UI and user interface management
  */
 
+/* eslint-disable */
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);

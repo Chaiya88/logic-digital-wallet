@@ -28,14 +28,14 @@ export default {
         
         const payload = {
           chat_id: chatId,
-          text: '🚀 ทดสอบข้อความพร้อมปุ่มเมนู\\n\\nหากคุณเห็นข้อความนี้ แสดงว่าบอทใช้งานได้แล้ว!',
+          text: '🚀 ทดสอบข้อความพร้อมปุ่มเมนู\n\nหากคุณเห็นข้อความนี้ แสดงว่าบอทใช้งานได้แล้ว!',
           parse_mode: 'HTML',
           reply_markup: keyboard
         };
         
         console.log('Sending to Telegram:', JSON.stringify(payload, null, 2));
         
-        const response = await fetch(\https://api.telegram.org/bot\/sendMessage\, {
+        const response = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

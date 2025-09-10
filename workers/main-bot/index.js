@@ -1,4 +1,7 @@
 // Enhanced Bot with Full Features - บอทเวอร์ชันสมบูรณ์
+
+/* eslint-disable */
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);

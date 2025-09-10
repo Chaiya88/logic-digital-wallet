@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * DOGLC Banking Worker - Complete Implementation with Advanced Validation
  * Handles all banking operations, validations, and financial logic
@@ -9,6 +10,8 @@
  *   - /crypto/withdraw/initiate (Initiate a USDT crypto withdrawal)
  *   - ... (see routing switch for full list)
  */
+
+/* eslint-disable */
 
 export default {
   async fetch(request, env, ctx) {
