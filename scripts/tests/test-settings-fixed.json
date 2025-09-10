@@ -1,0 +1,15 @@
+{
+  "callback_query": {
+    "from": {
+      "id": 111222333,
+      "username": "testfixed"
+    },
+    "message": {
+      "chat": {
+        "id": 111222333
+      },
+      "message_id": 127
+    },
+    "data": "settings"
+  }
+}

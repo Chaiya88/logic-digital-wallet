@@ -1,0 +1,50 @@
+# API Worker Configuration  
+name = "api-worker"
+main = "index.js"
+compatibility_date = "2024-08-25"
+compatibility_flags = ["nodejs_compat"]
+
+# Service Bindings
+[[services]]
+binding = "BANKING"
+service = "banking-worker"
+
+[[services]]
+binding = "SECURITY" 
+service = "security-worker"
+
+[[services]]
+binding = "MAIN_BOT"
+service = "main-bot-worker"
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "API_RATE_LIMITS"
+id = "0a3ec022e9b14774ba5791e5d5f0f6b7"
+
+[[kv_namespaces]]
+binding = "USER_SESSIONS"
+id = "cfe9a09ceea142728bb949be6a165296"
+
+[[kv_namespaces]]
+binding = "DOGLC_LOGS"
+id = "b3f14c9db2bd4c1a9f075561afb8deca"
+
+[[kv_namespaces]]
+binding = "SECURITY_TOKENS"
+id = "edf24ceaf0a84eeca9f3314ff88b70ad"
+
+# Environment Variables
+[vars]
+ACCOUNT_ID = "85bcd386f06541844632ecb984afa9fb"
+PROJECT_NAME = "digital-wallet-platform"
+ENVIRONMENT = "production"
+DOMAIN = "teenoi96.org"
+API_RATE_LIMIT_PER_MINUTE = "100"
+MAX_LOG_ENTRIES_PER_REQUEST = "1000"
+NOTIFICATION_EMAIL = "ops@teenoi96.org"
+
+# Routes
+[[routes]]
+pattern = "teenoi96.org/api/*"
+zone_name = "teenoi96.org"

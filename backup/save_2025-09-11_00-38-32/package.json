@@ -1,0 +1,45 @@
+{
+  "name": "logic-digital-wallet",
+  "version": "1.0.0",
+  "description": "Digital Wallet Logic System with Cloudflare Workers",
+  "main": "main_bot_worker_complete.js",
+  "scripts": {
+    "build": "echo 'No build required for vanilla JS workers'",
+    "deploy": "wrangler deploy",
+    "deploy:orchestrator": "wrangler deploy --config wrangler.toml",
+    "deploy:api": "wrangler deploy --config wrangler-api-worker.toml",
+    "deploy:banking": "wrangler deploy --config wrangler-banking-worker.toml",
+    "deploy:security": "wrangler deploy --config wrangler-security-worker.toml",
+    "deploy:bot": "wrangler deploy --config wrangler-main-bot.toml",
+    "deploy:frontend": "wrangler deploy --config wrangler-frontend-worker.toml",
+    "deploy:all": "npm run deploy:banking && npm run deploy:security && npm run deploy:api && npm run deploy:bot && npm run deploy:frontend",
+    "dev": "wrangler dev",
+    "dev:api": "wrangler dev --config wrangler-api-worker.toml",
+    "dev:banking": "wrangler dev --config wrangler-banking-worker.toml",
+    "dev:security": "wrangler dev --config wrangler-security-worker.toml",
+    "dev:bot": "wrangler dev --config wrangler-main-bot.toml",
+    "dev:frontend": "wrangler dev --config wrangler-frontend-worker.toml",
+    "test": "echo 'Tests not implemented yet'",
+    "lint": "echo 'Linting not configured yet'"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "digital-wallet",
+    "telegram-bot",
+    "banking",
+    "ocr",
+    "security"
+  ],
+  "author": "Chaiya88",
+  "license": "PRIVATE",
+  "devDependencies": {
+    "wrangler": "^4.35.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Chaiya88/logic-digital-wallet.git"
+  }
+}

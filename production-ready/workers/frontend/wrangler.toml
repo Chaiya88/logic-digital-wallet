@@ -1,0 +1,26 @@
+# Frontend Worker Configuration
+name = "frontend-worker"
+main = "src/index.js"
+compatibility_date = "2024-08-25"
+compatibility_flags = ["nodejs_compat"]
+
+# Service Bindings
+[[services]]
+binding = "API_WORKER"
+service = "api-worker"
+
+# Environment Variables
+[vars]
+ACCOUNT_ID = "85bcd386f06541844632ecb984afa9fb"
+PROJECT_NAME = "digital-wallet-platform"
+ENVIRONMENT = "production"
+DOMAIN = "teenoi96.org"
+
+# Routes
+[[routes]]
+pattern = "teenoi96.org/app/*"
+zone_name = "teenoi96.org"
+
+[[routes]]
+pattern = "teenoi96.org/wallet/*"
+zone_name = "teenoi96.org"

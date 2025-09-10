@@ -1,0 +1,55 @@
+# Banking Worker Configuration
+name = "banking-worker"
+main = "src/index.js"
+compatibility_date = "2024-08-25"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Databases
+[[d1_databases]]
+binding = "MAIN_WALLET_DB"
+database_name = "doglc-wallet-main"
+database_id = "49747ab5-7e7f-4c70-abf3-84f099354cf7"
+
+[[d1_databases]]
+binding = "BANKING_SYSTEM_DB"
+database_name = "doglc-banking-system"
+database_id = "abb80d11-b1c1-499b-88d3-3df2ebbb5525"
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "DOGLC_TRANSACTIONS"
+id = "74657733c0004630b1f8a00019531d75"
+
+[[kv_namespaces]]
+binding = "DOGLC_BANKS"
+id = "97ac6a2c6fc84302ab7a3747e9ab59a3"
+
+[[kv_namespaces]]
+binding = "DOGLC_USERS"
+id = "4582f3e06c6a42f6b48afdffde6c750d"
+
+[[kv_namespaces]]
+binding = "DOGLC_LOGS"
+id = "b3f14c9db2bd4c1a9f075561afb8deca"
+
+[[kv_namespaces]]
+binding = "DOGLC_WALLET_CACHE"
+id = "32313031d0c64cdebba3b0a28880114f"
+
+# Environment Variables
+[vars]
+ACCOUNT_ID = "85bcd386f06541844632ecb984afa9fb"
+PROJECT_NAME = "digital-wallet-platform"
+ENVIRONMENT = "production"
+DOMAIN = "teenoi96.org"
+DEFAULT_THB_USDT_RATE = "33.5"
+EXCHANGE_RATE_SOURCE = "realtime_api"
+MIN_TRANSACTION_THB = "3000"
+MAX_TRANSACTION_THB = "2000000"
+MIN_TRANSACTION_USDT = "100"
+MAX_TRANSACTION_USDT = "50000"
+BANK_NAME = "Krungthai"
+BANK_BRANCH = "Lotus Wonghin"
+BANK_ACCOUNT_NUMBER = "664-5-76971-7"
+BANK_ACCOUNT_NAME = "NEXT Savings"
+BANK_DAILY_LIMIT = "2000000"

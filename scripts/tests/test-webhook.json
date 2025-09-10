@@ -1,0 +1,19 @@
+{
+  "message": {
+    "message_id": 1001,
+    "text": "/start",
+    "from": {
+      "id": 888999000,
+      "is_bot": false,
+      "first_name": "DebugTest",
+      "username": "debugtest"
+    },
+    "chat": {
+      "id": 888999000,
+      "first_name": "DebugTest",
+      "username": "debugtest",
+      "type": "private"
+    },
+    "date": 1725962600
+  }
+}

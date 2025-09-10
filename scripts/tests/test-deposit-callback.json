@@ -1,0 +1,17 @@
+{
+  "callback_query": {
+    "id": "test123",
+    "from": {
+      "id": 888999000,
+      "first_name": "TestUser",
+      "username": "testuser"
+    },
+    "message": {
+      "chat": {
+        "id": 888999000
+      },
+      "message_id": 123
+    },
+    "data": "deposit_thb"
+  }
+}

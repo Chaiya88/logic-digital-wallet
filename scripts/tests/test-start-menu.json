@@ -1,0 +1,16 @@
+{
+  "message": {
+    "message_id": 1,
+    "from": {
+      "id": 888999000,
+      "first_name": "TestUser",
+      "username": "testuser"
+    },
+    "chat": {
+      "id": 888999000,
+      "type": "private"
+    },
+    "date": 1725962800,
+    "text": "/start"
+  }
+}

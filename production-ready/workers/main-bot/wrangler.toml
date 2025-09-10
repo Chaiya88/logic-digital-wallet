@@ -1,0 +1,65 @@
+# Main Bot Worker Configuration
+name = "main-bot-worker"
+main = "src/index.js"
+compatibility_date = "2024-08-25"
+compatibility_flags = ["nodejs_compat"]
+
+# Service Bindings
+[[services]]
+binding = "BANKING"
+service = "banking-worker"
+
+[[services]]
+binding = "SECURITY"
+service = "security-worker"
+
+[[services]]
+binding = "API_WORKER"
+service = "api-worker"
+
+# D1 Databases
+[[d1_databases]]
+binding = "DB"
+database_name = "doglc-wallet-main"
+database_id = "49747ab5-7e7f-4c70-abf3-84f099354cf7"
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "USER_SESSIONS"
+id = "cfe9a09ceea142728bb949be6a165296"
+
+[[kv_namespaces]]
+binding = "TELEGRAM_WEBHOOK_DATA"
+id = "9571bdf53290445f9e480aeababb6b08"
+
+[[kv_namespaces]]
+binding = "NOTIFICATION_HISTORY"
+id = "783698b2a5274af9a67ce33acf3e5144"
+
+[[kv_namespaces]]
+binding = "DOGLC_USERS"
+id = "4582f3e06c6a42f6b48afdffde6c750d"
+
+# Environment Variables
+[vars]
+ACCOUNT_ID = "85bcd386f06541844632ecb984afa9fb"
+PROJECT_NAME = "digital-wallet-platform"
+ENVIRONMENT = "production"
+DOMAIN = "teenoi96.org"
+SUPPORTED_LANGUAGES = "th,zh,en,km,ko,id"
+DEFAULT_LANGUAGE = "th"
+SESSION_TIMEOUT_HOURS = "24"
+REFERRAL_F1_RATE = "0.07"
+REFERRAL_F2_RATE = "0.15"
+REFERRAL_F3_RATE = "0.25"
+REFERRAL_BONUS_AMOUNT = "50"
+REFERRAL_BONUS_REQUIREMENT = "50"
+
+# Routes
+[[routes]]
+pattern = "teenoi96.org/bot/*"
+zone_name = "teenoi96.org"
+
+[[routes]]
+pattern = "teenoi96.org/webhook/*"
+zone_name = "teenoi96.org"

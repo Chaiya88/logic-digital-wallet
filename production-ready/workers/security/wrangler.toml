@@ -1,0 +1,37 @@
+# Security Worker Configuration
+name = "security-worker"
+main = "src/index.js"
+compatibility_date = "2024-08-25"
+compatibility_flags = ["nodejs_compat"]
+
+# Service Bindings
+[[services]]
+binding = "BANKING"
+service = "banking-worker"
+
+# R2 Buckets
+[[r2_buckets]]
+binding = "RECEIPTS_BUCKET"
+bucket_name = "doglc-receipts"
+
+[[r2_buckets]]
+binding = "IMAGES_BUCKET"
+bucket_name = "doglc-images"
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "DOGLC_LOGS"
+id = "b3f14c9db2bd4c1a9f075561afb8deca"
+
+[[kv_namespaces]]
+binding = "SECURITY_TOKENS"
+id = "edf24ceaf0a84eeca9f3314ff88b70ad"
+
+# Environment Variables
+[vars]
+ACCOUNT_ID = "85bcd386f06541844632ecb984afa9fb"
+PROJECT_NAME = "digital-wallet-platform"
+ENVIRONMENT = "production"
+DOMAIN = "teenoi96.org"
+OCR_PROCESSING_TIMEOUT = "30000"
+BLOCKCHAIN_CONFIRMATION_BLOCKS = "3"
