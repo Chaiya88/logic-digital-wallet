@@ -271,6 +271,14 @@ async function handlePublicAPI(request, env, path, corsHeaders) {
       if (method === 'GET') return await getNetworkHealth(env, corsHeaders);
       break;
       
+    case '/deployment/info':
+      if (method === 'GET') return await getDeploymentInfo(env, corsHeaders);
+      break;
+      
+    case '/deployment/manifest':
+      if (method === 'GET') return await getDeploymentManifest(env, corsHeaders);
+      break;
+      
     default:
       return new Response(JSON.stringify({
         error: 'Not Found',
@@ -1528,6 +1536,174 @@ async function getNetworkHealth(env, corsHeaders) {
   }
 }
 
+// Deployment Information Functions
+async function getDeploymentInfo(env, corsHeaders) {
+  try {
+    // Get basic deployment information
+    const deploymentInfo = {
+      project: {
+        name: 'DGWALL - Digital Wallet Logic System',
+        description: 'Cloudflare Workers powering a secure digital wallet platform',
+        repository: 'Chaiya88/logic-digital-wallet',
+        domain: env.DOMAIN || 'teenoi96.org',
+        environment: env.ENVIRONMENT || 'production'
+      },
+      workers: {
+        api: {
+          name: 'api-worker',
+          status: 'active',
+          endpoints: ['/api/v1/*', '/api/public/*', '/api/webhook/*']
+        },
+        banking: {
+          name: 'banking-worker', 
+          status: 'active',
+          endpoints: ['/banking/*']
+        },
+        security: {
+          name: 'security-worker',
+          status: 'active', 
+          endpoints: ['/security/*', '/verification/*']
+        },
+        frontend: {
+          name: 'frontend-worker',
+          status: 'active',
+          endpoints: ['/app/*', '/']
+        },
+        mainBot: {
+          name: 'main-bot-worker',
+          status: 'active',
+          endpoints: ['/bot/*', '/webhook/telegram']
+        }
+      },
+      infrastructure: {
+        accountId: env.ACCOUNT_ID,
+        supportedLanguages: (env.SUPPORTED_LANGUAGES || 'th,en,zh,km,ko,id').split(','),
+        defaultLanguage: env.DEFAULT_LANGUAGE || 'th',
+        rateLimitPerMinute: parseInt(env.API_RATE_LIMIT_PER_MINUTE || '100'),
+        sessionTimeoutHours: parseInt(env.SESSION_TIMEOUT_HOURS || '24')
+      },
+      features: {
+        ocrProcessing: true,
+        blockchainIntegration: true,
+        multiLanguageSupport: true,
+        rateLimiting: true,
+        realTimeNotifications: true,
+        advancedSecurity: true
+      },
+      lastUpdated: new Date().toISOString()
+    };
+
+    return new Response(JSON.stringify({
+      success: true,
+      deployment: deploymentInfo
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Failed to get deployment information'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+async function getDeploymentManifest(env, corsHeaders) {
+  try {
+    // Create a comprehensive deployment manifest
+    const manifest = {
+      generated: new Date().toISOString(),
+      version: '1.0.0',
+      project: 'DGWALL - Digital Wallet Logic System',
+      components: {
+        workers: {
+          description: 'Cloudflare Workers - Core application logic',
+          files: [
+            { name: 'api_worker_complete.js', status: 'deployed', type: 'worker' },
+            { name: 'banking_worker_complete.js', status: 'deployed', type: 'worker' },
+            { name: 'frontend_worker.js', status: 'deployed', type: 'worker' },
+            { name: 'main_bot_worker_complete.js', status: 'deployed', type: 'worker' },
+            { name: 'security_worker_complete.js', status: 'deployed', type: 'worker' },
+            { name: 'ocr_commission_systems.js', status: 'deployed', type: 'module' }
+          ]
+        },
+        configurations: {
+          description: 'Wrangler configuration files for deployment',
+          files: [
+            { name: 'wrangler.toml', status: 'active', type: 'config' },
+            { name: 'api/wrangler.toml', status: 'active', type: 'config' }
+          ]
+        },
+        deploymentFiles: {
+          description: 'GitHub Actions workflows and deployment scripts',
+          files: [
+            { name: '.github/workflows/chatops-deploy.yml', status: 'active', type: 'workflow' },
+            { name: '.github/workflows/migrate.yml', status: 'active', type: 'workflow' },
+            { name: 'setup-chatops.ps1', status: 'available', type: 'script' }
+          ]
+        }
+      },
+      endpoints: {
+        public: [
+          'GET /api/public/stats',
+          'GET /api/public/price', 
+          'GET /api/public/market-data',
+          'GET /api/public/system/status',
+          'GET /api/public/deployment/info',
+          'GET /api/public/deployment/manifest'
+        ],
+        authenticated: [
+          'GET /api/v1/wallet/balance',
+          'POST /api/v1/fiat/deposit/initiate',
+          'POST /api/v1/crypto/withdraw/initiate',
+          'POST /api/v1/staking/stake'
+        ],
+        webhooks: [
+          'POST /api/webhook/bank-email-notification',
+          'POST /api/webhook/telegram',
+          'POST /api/webhook/payment'
+        ]
+      },
+      infrastructure: {
+        kvNamespaces: [
+          'USER_SESSIONS', 'DOGLC_TRANSACTIONS', 'API_RATE_LIMITS',
+          'SECURITY_TOKENS', 'SLIP_VERIFICATION', 'ENHANCED_AUDIT_LOGS'
+        ],
+        d1Databases: [
+          'MAIN_WALLET_DB', 'SECURITY_AUDIT_DB', 'TRANSACTION_LOGS_DB',
+          'USER_ACCOUNTS_DB', 'TRADING_BOT_MAIN_DB'
+        ],
+        r2Buckets: [
+          'SYSTEM_LOGS', 'TRANSACTION_RECEIPTS', 'USER_DOCUMENTS'
+        ]
+      },
+      summary: {
+        totalWorkers: 5,
+        totalEndpoints: 15,
+        supportedLanguages: 6,
+        lastDeployment: 'Available via deployment history API'
+      }
+    };
+
+    return new Response(JSON.stringify({
+      success: true,
+      manifest: manifest
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Failed to get deployment manifest'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
 // Helper Functions
 async function getTotalSupply(env) {
   const configData = await env.SYSTEM_CONFIGURATION.get('total_supply');
@@ -1904,6 +2080,14 @@ async function getAPIDocumentation() {
         '/api/public/network/health': {
           method: 'GET',
           description: 'Get network health status'
+        },
+        '/api/public/deployment/info': {
+          method: 'GET',
+          description: 'Get deployment information and infrastructure details'
+        },
+        '/api/public/deployment/manifest': {
+          method: 'GET',
+          description: 'Get complete deployment manifest with all components'
         }
       },
       webhooks: {

@@ -88,6 +88,44 @@ npx wrangler d1 migrations apply wallet-production-db
 - Repository: Chaiya88/logic-digital-wallet
 - Initial Setup Date: 2025-08-27
 
+## Deployed Files Management
+### Get Deployed Files (NEW!)
+สำหรับการดูและส่งออกไฟล์ของโปรเจ็คที่ Deploy
+
+#### Using PowerShell Script
+```pwsh
+# Show deployment information
+.\Get-Deployed-Files.ps1 info
+
+# Generate deployment manifest
+.\Get-Deployed-Files.ps1 manifest
+
+# Export all deployed files
+.\Get-Deployed-Files.ps1 export
+
+# Do everything and open report
+.\Get-Deployed-Files.ps1 all -OpenReport
+```
+
+#### Using Node.js Scripts
+```bash
+# Generate deployment manifest
+node deployment-manifest.js
+
+# Export deployed files
+node export-deployed-files.js [output-directory]
+```
+
+#### API Endpoints
+- `GET /api/public/deployment/info` - Deployment information
+- `GET /api/public/deployment/manifest` - Complete deployment manifest
+
+The deployment tools create:
+- **HTML Report**: Visual deployment manifest with file details
+- **JSON Manifest**: Machine-readable deployment information  
+- **Exported Files**: Organized copy of all deployed components
+- **Full Structure**: Complete directory structure preservation
+
 ## Roadmap / Next Steps
 - Add CI/CD GitHub Actions workflows
 - Introduce unit/integration tests
