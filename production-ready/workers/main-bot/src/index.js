@@ -194,6 +194,20 @@ export default {
           case 'security':
             await handleSecurity(chatId, userId, env);
             break;
+            
+          // Language callback handlers
+          case 'lang_th':
+            await handleLanguageSelection(chatId, userId, 'th', env);
+            break;
+          case 'lang_en':
+            await handleLanguageSelection(chatId, userId, 'en', env);
+            break;
+          case 'lang_zh':
+            await handleLanguageSelection(chatId, userId, 'zh', env);
+            break;
+          case 'lang_km':
+            await handleLanguageSelection(chatId, userId, 'km', env);
+            break;
 
             // Callback สำหรับการยืนยันฝากเงิน
           case 'confirm_deposit_1000':
@@ -638,7 +652,7 @@ async function handleWithdrawAmount (chatId, userId, amount, env) {
     inline_keyboard: [
       [{ text: `✅ ยืนยันถอน ${amount} USDT`, callback_data: `confirm_withdraw_${amount}` }],
       [
-        { text: '❌ ยกเลิก', callback_data: 'withdraw_usdt' },
+        { text: '❌ ยกเลิก', callback_data: 'main_menu' },
         { text: '🏠 เมนูหลัก', callback_data: 'main_menu' }
       ]
     ]
@@ -663,7 +677,7 @@ async function handleWithdrawCustom (chatId, userId, env) {
   const keyboard = {
     inline_keyboard: [
       [
-        { text: '🔙 กลับ', callback_data: 'withdraw_usdt' },
+        { text: '🔙 กลับ', callback_data: 'main_menu' },
         { text: '🏠 เมนูหลัก', callback_data: 'main_menu' }
       ]
     ]
@@ -732,7 +746,7 @@ async function handleDepositConfirm (chatId, userId, amount, env) {
       [{ text: '✅ ยืนยันและโอนเงิน', callback_data: `confirm_deposit_${amount}` }],
       [{ text: '📸 อัปโหลดสลิป', callback_data: 'upload_slip' }],
       [
-        { text: '🔙 เลือกจำนวนใหม่', callback_data: 'deposit_thb' },
+        { text: '🔙 เลือกจำนวนใหม่', callback_data: 'main_menu' },
         { text: '🏠 เมนูหลัก', callback_data: 'main_menu' }
       ]
     ]
@@ -758,7 +772,7 @@ async function handleDepositCustom (chatId, userId, env) {
   const keyboard = {
     inline_keyboard: [
       [
-        { text: '🔙 เลือกจำนวนทั่วไป', callback_data: 'deposit_thb' },
+        { text: '🔙 เลือกจำนวนทั่วไป', callback_data: 'main_menu' },
         { text: '🏠 เมนูหลัก', callback_data: 'main_menu' }
       ]
     ]
@@ -956,7 +970,7 @@ async function handleUploadSlip (chatId, userId, env) {
     inline_keyboard: [
       [
         { text: '📞 ติดต่อ Support', callback_data: 'contact_support' },
-        { text: '🔙 กลับ', callback_data: 'deposit_thb' }
+        { text: '🔙 กลับ', callback_data: 'main_menu' }
       ],
       [{ text: '🏠 เมนูหลัก', callback_data: 'main_menu' }]
     ]
@@ -1109,4 +1123,78 @@ async function answerCallbackQuery (callbackQueryId, env) {
   } catch (error) {
     logger.error('Error answering callback query:', error);
   }
+}
+
+// Language handling functions
+async function handleLanguageSelection (chatId, userId, language, env) {
+  // Store language preference
+  await setUserLanguage(userId, language, env);
+
+  const messages = {
+    th: 'ภาษาไทยได้รับการตั้งค่าเรียบร้อยแล้ว! 🇹🇭',
+    en: 'English has been set successfully! 🇺🇸',
+    zh: '中文设置成功！🇨🇳',
+    km: 'ភាសាខ្មែរត្រូវបានកំណត់ដោយជោគជ័យ! 🇰🇭'
+  };
+
+  const confirmationMessage = messages[language] || messages.en;
+
+  // Send confirmation message
+  await sendMessage(chatId, confirmationMessage, null, env);
+
+  // Return to main menu with selected language
+  setTimeout(async () => {
+    await handleMainMenu(chatId, userId, env);
+  }, 1500);
+}
+
+async function setUserLanguage (userId, language, env) {
+  try {
+    // Try to store in KV first (if available)
+    if (env.USER_SETTINGS) {
+      await env.USER_SETTINGS.put(`lang:${userId}`, language);
+    }
+
+    // Also try to store in database
+    if (env.DB) {
+      try {
+        await env.DB.prepare(`
+          INSERT OR REPLACE INTO user_settings (user_id, setting_key, setting_value)
+          VALUES (?, ?, ?)
+        `).bind(userId, 'language', language).run();
+      } catch (dbError) {
+        logger.info('Database language storage failed:', dbError);
+      }
+    }
+  } catch (error) {
+    logger.error('Error storing language preference:', error);
+  }
+}
+
+async function getUserLanguage (userId, env) {
+  try {
+    // Try KV first
+    if (env.USER_SETTINGS) {
+      const lang = await env.USER_SETTINGS.get(`lang:${userId}`);
+      if (lang) return lang;
+    }
+
+    // Try database
+    if (env.DB) {
+      try {
+        const result = await env.DB.prepare(`
+          SELECT setting_value FROM user_settings 
+          WHERE user_id = ? AND setting_key = 'language'
+        `).bind(userId).first();
+        if (result) return result.setting_value;
+      } catch (dbError) {
+        logger.info('Database language retrieval failed:', dbError);
+      }
+    }
+  } catch (error) {
+    logger.error('Error retrieving language preference:', error);
+  }
+
+  // Default to Thai
+  return 'th';
 }
